@@ -4,7 +4,7 @@ import { Palette, Radius, Spacing } from '@/design-system';
 
 type Props = {
   label: string;
-  tone?: 'default' | 'alert' | 'positive';
+  tone?: 'default' | 'alert' | 'positive' | 'info';
 };
 
 export function Badge({ label, tone = 'default' }: Props) {
@@ -12,12 +12,14 @@ export function Badge({ label, tone = 'default' }: Props) {
     default: '#E8EDFF',
     alert: '#FFE6D5',
     positive: '#DBF7F2',
+    info: '#E5F3FF',
   }[tone];
 
   const textColor = {
     default: Palette.primary,
     alert: Palette.accent,
     positive: Palette.secondary,
+    info: '#0066CC',
   }[tone];
 
   return (
