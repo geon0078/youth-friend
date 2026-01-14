@@ -1,0 +1,9 @@
+# API 문서 및 키 (민감 정보)
+API문서모음/
+
+# BMAD 출력물
+_bmad-output/
+
+# OS 파일
+.DS_Store
+Thumbs.db
