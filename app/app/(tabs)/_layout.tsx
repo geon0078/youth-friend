@@ -47,6 +47,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="notifications"
+        options={{
+          title: '알림',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bell.fill" color={color} />,
+          href: null, // 탭바에서 숨김 (헤더 아이콘으로 접근)
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
           title: '탐색',

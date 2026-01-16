@@ -152,6 +152,12 @@ export interface AppSettings {
   deadlineAlertEnabled: boolean;
   /** 신규 혜택 알림 */
   newBenefitAlertEnabled: boolean;
+  /** 신청 결과 알림 (FR21) */
+  resultAlertEnabled: boolean;
+  /** 방해 금지 시작 시간 (HH:mm) */
+  quietHoursStart?: string;
+  /** 방해 금지 종료 시간 (HH:mm) */
+  quietHoursEnd?: string;
   /** 고대비 모드 (FR30) */
   highContrastMode: boolean;
   /** 텍스트 크기 (FR29) */

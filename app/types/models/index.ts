@@ -88,3 +88,23 @@ export {
   isDeadlineApproaching,
   getDaysUntilDeadline,
 } from './application';
+
+// Notification types (Epic 6)
+export type {
+  NotificationType,
+  NotificationPriority,
+  NotificationData,
+  StoredNotification,
+  NotificationSettings,
+  ScheduledNotification,
+  PushTokenInfo,
+} from './notification';
+
+export {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  NOTIFICATION_TYPE_LABELS,
+  NOTIFICATION_TYPE_ICONS,
+  DEADLINE_ALERT_DAYS,
+  MAX_DAILY_NOTIFICATIONS,
+  NOTIFICATION_RETENTION_DAYS,
+} from './notification';

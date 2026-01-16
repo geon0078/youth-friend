@@ -24,6 +24,10 @@ interface AppActions {
   toggleDeadlineAlert: (enabled: boolean) => void;
   /** 신규 혜택 알림 토글 */
   toggleNewBenefitAlert: (enabled: boolean) => void;
+  /** 신청 결과 알림 토글 (FR21) */
+  toggleResultAlert: (enabled: boolean) => void;
+  /** 방해 금지 시간 설정 */
+  setQuietHours: (start: string | undefined, end: string | undefined) => void;
   /** 고대비 모드 토글 (FR30) */
   toggleHighContrast: (enabled: boolean) => void;
   /** 텍스트 크기 설정 (FR29) */
@@ -45,6 +49,9 @@ const defaultSettings: AppSettings = {
   notificationsEnabled: true,
   deadlineAlertEnabled: true,
   newBenefitAlertEnabled: true,
+  resultAlertEnabled: true,
+  quietHoursStart: undefined,
+  quietHoursEnd: undefined,
   highContrastMode: false,
   textSize: 'medium',
   reduceMotion: false,
@@ -76,6 +83,20 @@ export const useAppStore = create<AppStore>()(
       toggleNewBenefitAlert: (enabled) =>
         set((state) => ({
           settings: { ...state.settings, newBenefitAlertEnabled: enabled },
+        })),
+
+      toggleResultAlert: (enabled) =>
+        set((state) => ({
+          settings: { ...state.settings, resultAlertEnabled: enabled },
+        })),
+
+      setQuietHours: (start, end) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            quietHoursStart: start,
+            quietHoursEnd: end,
+          },
         })),
 
       toggleHighContrast: (enabled) =>

@@ -61,3 +61,14 @@ export {
   useSavedApplications,
   useBenefitSaveStatus,
 } from './use-saved-applications';
+
+// Notification hooks (Epic 6)
+export {
+  useNotifications,
+  useNotificationPermission,
+} from './use-notifications';
+
+export {
+  useNotificationDeepLink,
+  createDeepLinkUrl,
+} from './use-notification-deep-link';
