@@ -11,6 +11,19 @@ export const Palette = {
   textMuted: '#4B5565',
   textOnPrimary: '#FFFFFF',
   textOnSurface: '#1F2432',
+  // Alert colors
+  error: '#E53935',
+  errorBackground: '#FFEBEE',
+  warning: '#FF8A34',
+  warningBackground: '#FFF3E0',
+  // Success colors
+  success: '#22C55E',
+  successBackground: '#DCFCE7',
+  // Info colors
+  info: '#3B82F6',
+  infoBackground: '#EFF6FF',
+  // Primary shades
+  primaryBackground: '#EFF6FF',
 };
 
 export const SemanticColors = {

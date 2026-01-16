@@ -40,6 +40,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="applications"
+        options={{
+          title: '신청',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="doc.text.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
           title: '탐색',

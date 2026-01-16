@@ -49,3 +49,15 @@ export {
   type UseCheckEligibilityResult,
   type UseEligibilityBatchResult,
 } from './use-eligibility';
+
+// Application hooks (Epic 5)
+export {
+  useDocumentChecklist,
+  clearAllChecklists,
+  deleteChecklist,
+} from './use-document-checklist';
+
+export {
+  useSavedApplications,
+  useBenefitSaveStatus,
+} from './use-saved-applications';

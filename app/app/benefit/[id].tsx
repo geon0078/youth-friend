@@ -5,13 +5,14 @@
  * - Story 3.7: Implement Benefit Detail Screen
  * - Story 3.8: Implement External Link to Government Page
  * - Story 4.4: Implement Eligibility Check UI
+ * - Story 5.2: Implement Document List Display
  */
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Text } from 'react-native';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useBenefitDetail, useCheckEligibility } from '@/hooks';
+import { useBenefitDetail, useCheckEligibility, useDocumentChecklist, useBenefitSaveStatus } from '@/hooks';
 import {
   BenefitDetail,
   BenefitDetailSkeleton,
@@ -21,6 +22,7 @@ import {
   EligibilityCheckButton,
   EligibilityResultModal,
 } from '@/components/eligibility';
+import { DocumentList, DocumentChecklist, ApplyButton, SaveForLaterButton } from '@/components/application';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import {
   Palette,
@@ -28,6 +30,7 @@ import {
   Typography,
   getSemanticColor,
 } from '@/design-system';
+import { parseDocumentsFromBenefit } from '@/utils';
 
 /**
  * 혜택 상세 화면
@@ -46,6 +49,36 @@ export default function BenefitDetailScreen() {
     isLoading: isCheckingEligibility,
     hasProfile,
   } = useCheckEligibility(benefit);
+
+  // 필요 서류 파싱
+  const requiredDocuments = useMemo(() => {
+    if (!benefit) return [];
+    return parseDocumentsFromBenefit(benefit);
+  }, [benefit]);
+
+  // 서류 체크리스트
+  const {
+    checklist,
+    progress: checklistProgress,
+    checkedCount,
+    totalCount,
+    isAllChecked: isChecklistComplete,
+    toggleDocument,
+    resetChecklist,
+    isDocumentChecked,
+  } = useDocumentChecklist(id || '', requiredDocuments);
+
+  // 저장 상태
+  const {
+    isSaved,
+    save: saveApplication,
+    remove: removeApplication,
+  } = useBenefitSaveStatus(
+    id || '',
+    benefit?.title || '',
+    benefit?.category || 'welfare',
+    benefit?.deadline
+  );
 
   const backgroundColor = getSemanticColor(colorScheme, 'background');
   const textColor = getSemanticColor(colorScheme, 'text');
@@ -160,6 +193,26 @@ export default function BenefitDetailScreen() {
       >
         <BenefitDetail benefit={benefit} colorScheme={colorScheme} />
 
+        {/* 필요 서류 목록 */}
+        <DocumentList
+          documents={requiredDocuments}
+          colorScheme={colorScheme}
+        />
+
+        {/* 서류 체크리스트 */}
+        {requiredDocuments.length > 0 && (
+          <DocumentChecklist
+            documents={requiredDocuments}
+            isChecked={isDocumentChecked}
+            onToggle={toggleDocument}
+            progress={checklistProgress}
+            checkedCount={checkedCount}
+            totalCount={totalCount}
+            onReset={resetChecklist}
+            colorScheme={colorScheme}
+          />
+        )}
+
         {/* 자격 확인 버튼 */}
         <EligibilityCheckButton
           status={eligibilityResult?.status}
@@ -171,12 +224,33 @@ export default function BenefitDetailScreen() {
           colorScheme={colorScheme}
         />
 
-        <View style={styles.externalLinkContainer}>
-          <ExternalLinkButton
-            url={benefit.applicationUrl || benefit.detailUrl}
-            colorScheme={colorScheme}
-          />
-        </View>
+        {/* 신청하기 버튼 */}
+        <ApplyButton
+          applicationUrl={benefit.applicationUrl}
+          benefitTitle={benefit.title}
+          isChecklistComplete={isChecklistComplete}
+          checklistProgress={checklistProgress}
+          colorScheme={colorScheme}
+        />
+
+        {/* 나중에 하기 버튼 */}
+        <SaveForLaterButton
+          isSaved={isSaved}
+          onSave={() => saveApplication(checklist || undefined)}
+          onRemove={removeApplication}
+          currentChecklist={checklist || undefined}
+          colorScheme={colorScheme}
+        />
+
+        {/* 공식 페이지 링크 (신청 URL이 없을 때만 표시) */}
+        {!benefit.applicationUrl && benefit.detailUrl && (
+          <View style={styles.externalLinkContainer}>
+            <ExternalLinkButton
+              url={benefit.detailUrl}
+              colorScheme={colorScheme}
+            />
+          </View>
+        )}
       </ScrollView>
 
       {/* 자격 검증 결과 모달 */}

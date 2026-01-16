@@ -62,3 +62,55 @@ export function getCategoryIcon(category?: BenefitCategory): CategoryIconName {
   }
   return icons[category] || 'gift.fill';
 }
+
+/**
+ * 카테고리 색상 매핑
+ */
+const CATEGORY_COLORS: Record<BenefitCategory, { color: string; backgroundColor: string }> = {
+  employment: { color: '#0B4DFF', backgroundColor: '#EFF6FF' },
+  housing: { color: '#22C55E', backgroundColor: '#DCFCE7' },
+  education: { color: '#8B5CF6', backgroundColor: '#F3E8FF' },
+  welfare: { color: '#EC4899', backgroundColor: '#FCE7F3' },
+  finance: { color: '#F59E0B', backgroundColor: '#FEF3C7' },
+  culture: { color: '#06B6D4', backgroundColor: '#CFFAFE' },
+};
+
+/**
+ * 카테고리 정보 반환 (라벨, 아이콘, 색상)
+ */
+export interface CategoryInfo {
+  label: string;
+  icon: CategoryIconName;
+  color: string;
+  backgroundColor: string;
+}
+
+/**
+ * 카테고리 전체 정보 반환
+ * @param category - 혜택 카테고리
+ * @returns 카테고리 정보 객체
+ */
+export function getCategoryInfo(category?: BenefitCategory): CategoryInfo {
+  const defaultInfo: CategoryInfo = {
+    label: '기타',
+    icon: 'gift.fill',
+    color: '#6B7280',
+    backgroundColor: '#F3F4F6',
+  };
+
+  if (!category) {
+    return defaultInfo;
+  }
+
+  const colors = CATEGORY_COLORS[category];
+  if (!colors) {
+    return defaultInfo;
+  }
+
+  return {
+    label: CATEGORY_LABELS[category] || '기타',
+    icon: getCategoryIcon(category),
+    color: colors.color,
+    backgroundColor: colors.backgroundColor,
+  };
+}

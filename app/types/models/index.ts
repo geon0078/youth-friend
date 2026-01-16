@@ -30,3 +30,61 @@ export type {
   BenefitDetail,
   BenefitListResult,
 } from './benefit';
+
+// Eligibility types (Story 4.1)
+export type {
+  EligibilityStatus,
+  RuleOperator,
+  RuleFieldType,
+  RuleValue,
+  RangeValue,
+  RequirementSeverity,
+  RuleMetadata,
+  EligibilityRule,
+  RuleCheckResult,
+  MatchScore,
+  UnmetRequirement,
+  FutureEligibility,
+  EligibilityResult,
+  EligibilityCheckOptions,
+} from './eligibility';
+
+export {
+  ELIGIBILITY_STATUS_LABELS,
+  ELIGIBILITY_STATUS_COLORS,
+  SEVERITY_LABELS,
+  FIELD_TYPE_LABELS,
+  DEFAULT_MATCH_SCORE,
+  DEFAULT_ELIGIBILITY_RESULT,
+  DEFAULT_ELIGIBILITY_OPTIONS,
+  ELIGIBILITY_DISCLAIMER,
+  ELIGIBILITY_CACHE_TTL,
+} from './eligibility';
+
+// Application types (Story 5.1)
+export type {
+  ApplicationStatus,
+  DocumentIssuanceMethod,
+  RequiredDocument,
+  DocumentCheckItem,
+  DocumentChecklist,
+  ApplicationStep,
+  ApplicationProgress,
+  SavedApplication,
+  StatusHistoryItem,
+  SavedApplicationFilters,
+} from './application';
+
+export {
+  APPLICATION_STATUS_LABELS,
+  APPLICATION_STATUS_COLORS,
+  ISSUANCE_METHOD_LABELS,
+  APPLICATION_STEP_LABELS,
+  DEFAULT_APPLICATION_PROGRESS,
+  COMMON_DOCUMENTS,
+  APPLICATION_STEP_PROGRESS,
+  findCommonDocument,
+  calculateChecklistProgress,
+  isDeadlineApproaching,
+  getDaysUntilDeadline,
+} from './application';
