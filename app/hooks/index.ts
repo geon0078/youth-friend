@@ -72,3 +72,21 @@ export {
   useNotificationDeepLink,
   createDeepLinkUrl,
 } from './use-notification-deep-link';
+
+// Accessibility hooks (Epic 7)
+export {
+  useAccessibility,
+  useReducedMotion,
+  useScreenReader,
+  useFontScale,
+} from './use-accessibility';
+
+export {
+  useScaledTypography,
+  useTypographyStyle,
+} from './use-scaled-typography';
+
+export {
+  useTheme,
+  useColorSchemeWithContrast,
+} from './use-theme';

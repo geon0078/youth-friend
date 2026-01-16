@@ -175,6 +175,33 @@ export default function ProfileScreen() {
       <View style={[styles.section, styles.settingsSection]}>
         <Text style={styles.sectionTitle}>설정</Text>
         <View style={styles.card}>
+          {/* 알림 설정 */}
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('./settings/notifications')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="알림 설정"
+            accessibilityHint="알림 설정 화면으로 이동합니다"
+          >
+            <Text style={styles.settingItemText}>알림 설정</Text>
+            <Text style={styles.settingItemArrow}>›</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          {/* 접근성 설정 */}
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('./settings/accessibility')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="접근성 설정"
+            accessibilityHint="접근성 설정 화면으로 이동합니다"
+          >
+            <Text style={styles.settingItemText}>접근성 설정</Text>
+            <Text style={styles.settingItemArrow}>›</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          {/* 데이터 삭제 */}
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={handleDeleteData}
@@ -290,5 +317,21 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.caption,
     color: Palette.gray500,
     marginTop: Spacing.xs,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    minHeight: Accessibility.minTouchTarget,
+  },
+  settingItemText: {
+    fontSize: Typography.fontSize.body,
+    fontWeight: Typography.fontWeight.medium,
+    color: Palette.gray900,
+  },
+  settingItemArrow: {
+    fontSize: 20,
+    color: Palette.gray400,
   },
 });

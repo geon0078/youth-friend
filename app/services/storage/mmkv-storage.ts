@@ -11,9 +11,26 @@ const webMMKV = {
     }
     return undefined;
   },
-  set: (key: string, value: string): void => {
+  getNumber: (key: string): number | undefined => {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(key, value);
+      const value = localStorage.getItem(key);
+      if (value === null) return undefined;
+      const num = Number(value);
+      return isNaN(num) ? undefined : num;
+    }
+    return undefined;
+  },
+  getBoolean: (key: string): boolean | undefined => {
+    if (typeof localStorage !== 'undefined') {
+      const value = localStorage.getItem(key);
+      if (value === null) return undefined;
+      return value === 'true';
+    }
+    return undefined;
+  },
+  set: (key: string, value: string | number | boolean): void => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, String(value));
     }
   },
   remove: (key: string): void => {

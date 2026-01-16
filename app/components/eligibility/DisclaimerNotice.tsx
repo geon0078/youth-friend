@@ -68,7 +68,6 @@ export function DisclaimerNotice({
         name="info.circle"
         size={compact ? 14 : 16}
         color={mutedTextColor}
-        accessibilityElementsHidden={true}
       />
       <Text
         style={[

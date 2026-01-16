@@ -22,7 +22,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
-    shouldShowInForeground: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -203,7 +204,7 @@ export async function sendLocalNotification(
       content: {
         title,
         body,
-        data: data as Record<string, unknown>,
+        data: data as unknown as Record<string, unknown>,
         sound: true,
         priority: Notifications.AndroidNotificationPriority.HIGH,
         ...(Platform.OS === 'android' && {
@@ -241,7 +242,7 @@ export async function scheduleNotification(
       content: {
         title,
         body,
-        data: data as Record<string, unknown>,
+        data: data as unknown as Record<string, unknown>,
         sound: true,
         priority: Notifications.AndroidNotificationPriority.HIGH,
         ...(Platform.OS === 'android' && {

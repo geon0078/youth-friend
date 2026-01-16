@@ -130,11 +130,11 @@ function getNotificationTitle(benefit: Benefit): string {
  * 알림 본문 생성
  */
 function getNotificationBody(benefit: Benefit): string {
-  const amount = benefit.supportAmount
-    ? ` (최대 ${formatCurrency(benefit.supportAmount)})`
+  const amountText = benefit.amount
+    ? ` (최대 ${formatCurrency(benefit.amount)})`
     : '';
 
-  return `${benefit.title}${amount}`;
+  return `${benefit.title}${amountText}`;
 }
 
 /**
@@ -221,7 +221,7 @@ export async function checkAndNotifyNewBenefits(
   }
 
   // 금액 순으로 정렬 (높은 금액 먼저)
-  benefitsToNotify.sort((a, b) => (b.supportAmount || 0) - (a.supportAmount || 0));
+  benefitsToNotify.sort((a, b) => (b.amount || 0) - (a.amount || 0));
 
   // 알림 발송
   const { sent } = await notifyNewBenefits(benefitsToNotify);
@@ -236,13 +236,13 @@ export async function checkAndNotifyNewBenefits(
  * 일일 알림 카운트 초기화 (테스트/디버그용)
  */
 export function resetDailyNotificationCount(): void {
-  cacheStorage.delete(DAILY_NOTIFICATION_COUNT_KEY);
-  cacheStorage.delete(LAST_NOTIFICATION_DATE_KEY);
+  cacheStorage.remove(DAILY_NOTIFICATION_COUNT_KEY);
+  cacheStorage.remove(LAST_NOTIFICATION_DATE_KEY);
 }
 
 /**
  * 알려진 혜택 목록 초기화 (테스트/디버그용)
  */
 export function resetKnownBenefits(): void {
-  cacheStorage.delete(KNOWN_BENEFIT_IDS_KEY);
+  cacheStorage.remove(KNOWN_BENEFIT_IDS_KEY);
 }

@@ -115,7 +115,7 @@ export function useNotifications(): UseNotificationsReturn {
   const handleNotificationReceived = useCallback(
     (notification: Notifications.Notification) => {
       const { title, body, data } = notification.request.content;
-      const notificationData = data as NotificationData | undefined;
+      const notificationData = data as unknown as NotificationData | undefined;
 
       // 설정에 따라 저장
       if (!settings.notificationsEnabled) {
@@ -144,7 +144,7 @@ export function useNotifications(): UseNotificationsReturn {
   const handleNotificationResponse = useCallback(
     (response: Notifications.NotificationResponse) => {
       const { data } = response.notification.request.content;
-      const notificationData = data as NotificationData | undefined;
+      const notificationData = data as unknown as NotificationData | undefined;
 
       // 알림 읽음 처리
       markAsRead(response.notification.request.identifier);
@@ -192,10 +192,10 @@ export function useNotifications(): UseNotificationsReturn {
 
     return () => {
       if (notificationReceivedRef.current) {
-        Notifications.removeNotificationSubscription(notificationReceivedRef.current);
+        notificationReceivedRef.current.remove();
       }
       if (notificationResponseRef.current) {
-        Notifications.removeNotificationSubscription(notificationResponseRef.current);
+        notificationResponseRef.current.remove();
       }
     };
   }, [handleNotificationReceived, handleNotificationResponse]);

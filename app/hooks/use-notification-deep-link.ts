@@ -79,7 +79,7 @@ export function useNotificationDeepLink() {
       }
       lastHandledIdRef.current = identifier;
 
-      const data = content.data as NotificationData | undefined;
+      const data = content.data as unknown as NotificationData | undefined;
       const deepLink = extractDeepLink(data);
 
       if (deepLink) {
@@ -120,7 +120,7 @@ export function useNotificationDeepLink() {
 
     return () => {
       if (responseReceivedRef.current) {
-        Notifications.removeNotificationSubscription(responseReceivedRef.current);
+        responseReceivedRef.current.remove();
       }
     };
   }, [handleNotificationResponse]);

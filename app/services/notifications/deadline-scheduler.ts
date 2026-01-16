@@ -78,8 +78,8 @@ function getNotificationTitle(daysLeft: number): string {
  * 알림 본문 생성
  */
 function getNotificationBody(benefit: Benefit, daysLeft: number): string {
-  const benefitAmount = benefit.supportAmount
-    ? ` (최대 ${formatCurrency(benefit.supportAmount)})`
+  const benefitAmount = benefit.amount
+    ? ` (최대 ${formatCurrency(benefit.amount)})`
     : '';
 
   if (daysLeft === 0) {

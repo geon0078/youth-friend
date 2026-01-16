@@ -119,7 +119,7 @@ export function deleteNotification(notificationId: string): void {
  */
 export function clearAllNotifications(): void {
   try {
-    cacheStorage.delete(STORAGE_KEY);
+    cacheStorage.remove(STORAGE_KEY);
   } catch (error) {
     console.error('[NotificationStorage] Error clearing notifications:', error);
   }
