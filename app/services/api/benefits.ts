@@ -344,43 +344,15 @@ export async function fetchAllBenefits(
     );
   }
 
-  // 고용24 API - 카테고리에 따라 선택적 호출
+  // 고용24 API - 취업지원프로그램만 혜택으로 포함
+  // 참고: 훈련과정(교육)은 혜택이 아니므로 별도 관리
   if (shouldFetchEmployment24) {
     const category = filters?.category;
 
-    // 채용정보 (employment 카테고리) - 개인회원 API 키로 사용 불가
-    // 참고: fetchJobPostingList()는 빈 배열을 반환합니다
+    // 채용정보 - 개인회원 API 키로 사용 불가
+    // 훈련과정 - 교육/훈련은 혜택이 아니므로 제외 (별도 API로 제공)
 
-    // 훈련과정 (education 카테고리)
-    if (!category || category === 'education') {
-      promises.push(
-        (async () => {
-          try {
-            if (__DEV__) {
-              console.log('[Benefits] 훈련과정 API 호출 시작...');
-            }
-            const response = await fetchTrainingCardList({
-              pageNo: page,
-              numOfRows: Math.floor(pageSize / 2),
-              keyword: filters?.keyword,
-            });
-            if (__DEV__) {
-              console.log(`[Benefits] 훈련과정 API 성공: ${response.items.length}개 과정`);
-            }
-
-            results.push(...response.items.map(normalizeTrainingCard));
-            totalCount += response.totalCount;
-          } catch (error) {
-            if (__DEV__) {
-              console.warn('[Benefits] 훈련과정 API 오류:', error);
-            }
-            errors.push(error instanceof Error ? error : new Error('훈련과정 API 오류'));
-          }
-        })()
-      );
-    }
-
-    // 취업지원프로그램 (employment 카테고리)
+    // 취업지원프로그램 (employment 카테고리) - 실제 혜택
     if (!category || category === 'employment') {
       promises.push(
         (async () => {
