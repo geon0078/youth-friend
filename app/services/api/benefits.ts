@@ -6,6 +6,8 @@ import {
   fetchYouthPolicyList,
   fetchYouthPolicyDetail,
   POLICY_TYPE_CODES,
+  REGION_TO_API_CODE,
+  REGION_NAME_TO_CODE,
 } from './youth-policy';
 import {
   fetchTrainingCardList,
@@ -294,11 +296,17 @@ export async function fetchAllBenefits(
   }
 
   const page = filters?.page ?? 1;
-  const pageSize = filters?.pageSize ?? 10;
+  const pageSize = filters?.pageSize ?? 100; // 페이지당 100개 요청
 
   // 출처 필터에 따른 API 호출 결정
   const shouldFetchYouthPolicy = !filters?.source || filters.source === 'youth-policy';
   const shouldFetchEmployment24 = !filters?.source || filters.source === 'employment24';
+
+  // 지역 코드 변환 (사용자 지역 타입 → API 코드)
+  const regionApiCode = filters?.region ? REGION_TO_API_CODE[filters.region] : undefined;
+  if (__DEV__ && filters?.region) {
+    console.log(`[Benefits] 지역 필터: ${filters.region} → API 코드: ${regionApiCode}`);
+  }
 
   const results: Benefit[] = [];
   let totalCount = 0;
@@ -307,7 +315,7 @@ export async function fetchAllBenefits(
   // 병렬 API 호출
   const promises: Promise<void>[] = [];
 
-  // 온통청년 API
+  // 온통청년 API - 모든 페이지 가져오기
   if (shouldFetchYouthPolicy) {
     promises.push(
       (async () => {
@@ -315,17 +323,55 @@ export async function fetchAllBenefits(
           if (__DEV__) {
             console.log('[Benefits] 온통청년 API 호출 시작...');
           }
-          const response = await fetchYouthPolicyList({
-            pageIndex: page,
+
+          // 첫 페이지 조회 (총 개수 파악)
+          const firstResponse = await fetchYouthPolicyList({
+            pageIndex: 1,
             display: pageSize,
             query: filters?.keyword,
-            srchPolyBizSecd: filters?.region,
+            srchPolyBizSecd: regionApiCode,
           });
+
+          let allItems = [...firstResponse.items];
+          const totalPages = Math.ceil(firstResponse.totalCount / pageSize);
+
           if (__DEV__) {
-            console.log(`[Benefits] 온통청년 API 성공: ${response.items.length}개 정책`);
+            console.log(`[Benefits] 온통청년 API 첫 페이지: ${firstResponse.items.length}개, 총 ${firstResponse.totalCount}개 (${totalPages} 페이지)`);
           }
 
-          const normalized = response.items.map(normalizeYouthPolicy);
+          // 추가 페이지가 있으면 모두 가져오기 (최대 20페이지 = 2000개)
+          if (totalPages > 1) {
+            const maxPages = Math.min(totalPages, 20);
+            const additionalPromises: Promise<void>[] = [];
+
+            for (let p = 2; p <= maxPages; p++) {
+              additionalPromises.push(
+                (async () => {
+                  try {
+                    const response = await fetchYouthPolicyList({
+                      pageIndex: p,
+                      display: pageSize,
+                      query: filters?.keyword,
+                      srchPolyBizSecd: regionApiCode,
+                    });
+                    allItems.push(...response.items);
+                  } catch (e) {
+                    if (__DEV__) {
+                      console.warn(`[Benefits] 온통청년 API 페이지 ${p} 오류:`, e);
+                    }
+                  }
+                })()
+              );
+            }
+
+            await Promise.all(additionalPromises);
+          }
+
+          if (__DEV__) {
+            console.log(`[Benefits] 온통청년 API 총 ${allItems.length}개 정책 조회됨`);
+          }
+
+          const normalized = allItems.map(normalizeYouthPolicy);
 
           // 카테고리 필터 적용
           const filtered = filters?.category
@@ -333,7 +379,7 @@ export async function fetchAllBenefits(
             : normalized;
 
           results.push(...filtered);
-          totalCount += response.totalCount;
+          totalCount += firstResponse.totalCount;
         } catch (error) {
           if (__DEV__) {
             console.warn('[Benefits] 온통청년 API 오류:', error);
@@ -360,17 +406,54 @@ export async function fetchAllBenefits(
             if (__DEV__) {
               console.log('[Benefits] 취업프로그램 API 호출 시작...');
             }
-            const response = await fetchEmploymentProgramList({
-              pageNo: page,
-              numOfRows: Math.floor(pageSize / 2),
+
+            // 첫 페이지 조회
+            const firstResponse = await fetchEmploymentProgramList({
+              pageNo: 1,
+              numOfRows: pageSize,
               keyword: filters?.keyword,
             });
+
+            let allItems = [...firstResponse.items];
+            const totalPages = Math.ceil(firstResponse.totalCount / pageSize);
+
             if (__DEV__) {
-              console.log(`[Benefits] 취업프로그램 API 성공: ${response.items.length}개 프로그램`);
+              console.log(`[Benefits] 취업프로그램 API 첫 페이지: ${firstResponse.items.length}개, 총 ${firstResponse.totalCount}개 (${totalPages} 페이지)`);
             }
 
-            results.push(...response.items.map(normalizeEmploymentProgram));
-            totalCount += response.totalCount;
+            // 추가 페이지가 있으면 모두 가져오기 (최대 5페이지까지)
+            if (totalPages > 1) {
+              const maxPages = Math.min(totalPages, 5);
+              const additionalPromises: Promise<void>[] = [];
+
+              for (let p = 2; p <= maxPages; p++) {
+                additionalPromises.push(
+                  (async () => {
+                    try {
+                      const response = await fetchEmploymentProgramList({
+                        pageNo: p,
+                        numOfRows: pageSize,
+                        keyword: filters?.keyword,
+                      });
+                      allItems.push(...response.items);
+                    } catch (e) {
+                      if (__DEV__) {
+                        console.warn(`[Benefits] 취업프로그램 API 페이지 ${p} 오류:`, e);
+                      }
+                    }
+                  })()
+                );
+              }
+
+              await Promise.all(additionalPromises);
+            }
+
+            if (__DEV__) {
+              console.log(`[Benefits] 취업프로그램 API 총 ${allItems.length}개 프로그램 조회됨`);
+            }
+
+            results.push(...allItems.map(normalizeEmploymentProgram));
+            totalCount += firstResponse.totalCount;
           } catch (error) {
             if (__DEV__) {
               console.warn('[Benefits] 취업지원프로그램 API 오류:', error);
@@ -420,12 +503,105 @@ export async function fetchAllBenefits(
     };
   }
 
+  // 클라이언트 측 지역 필터링 - 유연하게 적용
+  // 참고: 지역 필터링은 API 레벨에서 처리하므로, 클라이언트에서는 보조적으로만 적용
+  let filteredResults = results;
+  if (filters?.region && filteredResults.length > 0) {
+    const userRegion = filters.region.toLowerCase();
+
+    // 사용자 지역의 한글명 찾기
+    const REGION_CODE_TO_KOREAN: Record<string, string[]> = {
+      seoul: ['서울', '서울시', '서울특별시'],
+      busan: ['부산', '부산시', '부산광역시'],
+      daegu: ['대구', '대구시', '대구광역시'],
+      incheon: ['인천', '인천시', '인천광역시'],
+      gwangju: ['광주', '광주시', '광주광역시'],
+      daejeon: ['대전', '대전시', '대전광역시'],
+      ulsan: ['울산', '울산시', '울산광역시'],
+      sejong: ['세종', '세종시', '세종특별자치시'],
+      gyeonggi: ['경기', '경기도'],
+      gangwon: ['강원', '강원도', '강원특별자치도'],
+      chungbuk: ['충북', '충청북도'],
+      chungnam: ['충남', '충청남도'],
+      jeonbuk: ['전북', '전라북도', '전북특별자치도'],
+      jeonnam: ['전남', '전라남도'],
+      gyeongbuk: ['경북', '경상북도'],
+      gyeongnam: ['경남', '경상남도'],
+      jeju: ['제주', '제주도', '제주특별자치도'],
+    };
+
+    // 중앙부처/국가기관 키워드 (이들은 전국 대상 정책)
+    const CENTRAL_GOVERNMENT_KEYWORDS = [
+      '부', '처', '청', '원', '위원회', '공단', '재단', '진흥원', '기금',
+      '고용노동', '교육', '중소벤처', '국토교통', '보건복지', '과학기술',
+      '산업통상', '환경', '문화체육', '외교', '국방', '법무', '행정안전',
+      '농림축산', '해양수산', '여성가족', '통일', '국가보훈', '방위사업',
+      '금융', '특허', '조달', '통계', '공정거래', '국민건강보험', '신용',
+    ];
+
+    const userRegionKoreanNames = REGION_CODE_TO_KOREAN[userRegion] || [];
+
+    filteredResults = results.filter((benefit) => {
+      // 지역이 없는 경우 (전국 정책) 포함
+      if (!benefit.region) return true;
+
+      const benefitRegion = benefit.region;
+
+      // 중앙부처/전국 정책은 모든 지역에 포함
+      if (
+        benefitRegion.includes('중앙') ||
+        benefitRegion.includes('전국') ||
+        benefitRegion === '' ||
+        benefitRegion.toLowerCase() === 'all'
+      ) {
+        return true;
+      }
+
+      // 중앙부처/국가기관 키워드 체크 (지자체가 아닌 경우)
+      const isLocalGov = ['시', '도', '군', '구'].some(
+        suffix => benefitRegion.includes('특별') ||
+                  benefitRegion.includes('광역') ||
+                  benefitRegion.endsWith(suffix + ' ') ||
+                  benefitRegion.match(new RegExp(`(시|도|군|구)($| |청)`))
+      );
+
+      if (!isLocalGov) {
+        // 중앙부처 키워드 포함 여부 확인
+        for (const keyword of CENTRAL_GOVERNMENT_KEYWORDS) {
+          if (benefitRegion.includes(keyword)) {
+            return true; // 전국 대상 정책
+          }
+        }
+      }
+
+      // 사용자 지역과 혜택 지역이 매칭되는지 확인
+      // 1. 혜택 지역이 사용자 지역명 중 하나를 포함하는 경우
+      for (const koreanName of userRegionKoreanNames) {
+        if (benefitRegion.includes(koreanName)) {
+          return true;
+        }
+      }
+
+      // 2. 역으로 확인: 사용자 지역명이 혜택 지역을 포함하는 경우
+      const benefitRegionLower = benefitRegion.toLowerCase();
+      if (benefitRegionLower.includes(userRegion)) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (__DEV__) {
+      console.log(`[Benefits] 지역 필터 적용: ${results.length}개 → ${filteredResults.length}개 (지역: ${userRegion})`);
+    }
+  }
+
   return {
-    items: results,
-    totalCount,
+    items: filteredResults,
+    totalCount: filteredResults.length,
     page,
     pageSize,
-    totalPages: Math.ceil(totalCount / pageSize),
+    totalPages: Math.ceil(filteredResults.length / pageSize),
   };
 }
 

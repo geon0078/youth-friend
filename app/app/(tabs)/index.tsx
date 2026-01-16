@@ -11,6 +11,7 @@ import { useRouter, type Href } from 'expo-router';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTotalBenefits, useBenefits } from '@/hooks';
+import { useUserStore } from '@/stores/user-store';
 import {
   getSemanticColor,
   SemanticColors,
@@ -81,17 +82,22 @@ export default function HomeScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const resolvedScheme = scheme === 'dark' ? 'dark' : 'light';
+  const profile = useUserStore((state) => state.profile);
+  const userRegion = profile?.region;
 
   const backgroundColor = getSemanticColor(scheme, 'background');
   const textColor = getSemanticColor(scheme, 'text');
   const mutedText = SemanticColors[resolvedScheme].mutedText;
 
-  // 총 혜택 금액 조회
-  const { data: totalBenefitsData, isLoading: isTotalBenefitsLoading } = useTotalBenefits();
+  // 총 혜택 금액 조회 - 사용자 지역 기반
+  const { data: totalBenefitsData, isLoading: isTotalBenefitsLoading } = useTotalBenefits({ region: userRegion });
 
-  // 추천 혜택 조회 (상위 3개만 표시)
-  const { data: benefitsData, isLoading: isBenefitsLoading, isError } = useBenefits();
-  const recommendedBenefits = benefitsData?.items.slice(0, 3) ?? [];
+  // 추천 혜택 조회 (상위 3개만 표시) - 사용자 지역 기반
+  const { data: benefitsData, isLoading: isBenefitsLoading, isError } = useBenefits({ region: userRegion });
+  // 마감된 혜택 제외하고 상위 3개만 표시
+  const recommendedBenefits = (benefitsData?.items ?? [])
+    .filter((b) => b.status !== 'ended')
+    .slice(0, 3);
 
   const handleTotalBenefitPress = () => {
     router.push('/benefits' as Href);

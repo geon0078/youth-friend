@@ -43,7 +43,10 @@ export default function TimelineScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const profile = useUserStore((state) => state.profile);
-  const { data, isLoading, isError } = useBenefits();
+  const userRegion = profile?.region;
+
+  // 사용자 지역 기반 혜택 조회
+  const { data, isLoading, isError } = useBenefits({ region: userRegion });
 
   // 현재 나이 계산 (프로필 없으면 기본값 25세)
   const currentAge = useMemo(() => {

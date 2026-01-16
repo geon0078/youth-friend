@@ -264,10 +264,28 @@ async function fetchJson<T>(
 export async function fetchYouthPolicyList(
   params: YouthPolicyListParams = {}
 ): Promise<{ items: YouthPolicyListItem[]; totalCount: number; pageIndex: number }> {
-  const response = await fetchJson<NewApiResponse>(`${BASE_URL}/getPlcy`, {
+  // API 요청 파라미터 구성
+  const apiParams: Record<string, string | number> = {
     pageNum: params.pageIndex ?? 1,
-    pageSize: params.display ?? 10,
-  });
+    pageSize: params.display ?? 100, // 더 많은 데이터 요청
+  };
+
+  // 지역 코드 추가 (선택된 경우)
+  if (params.srchPolyBizSecd) {
+    apiParams.zipCd = params.srchPolyBizSecd;
+  }
+
+  // 정책 유형 코드 추가 (선택된 경우)
+  if (params.bizTycdSel) {
+    apiParams.lclsfCd = params.bizTycdSel;
+  }
+
+  // 검색어 추가 (선택된 경우)
+  if (params.query) {
+    apiParams.srchWord = params.query;
+  }
+
+  const response = await fetchJson<NewApiResponse>(`${BASE_URL}/getPlcy`, apiParams);
 
   const items = response.result.youthPolicyList.map(convertToLegacyFormat);
 
@@ -330,3 +348,103 @@ export const REGION_CODES = {
   JEJU: '003016',
   SEJONG: '003017',
 } as const;
+
+/**
+ * 사용자 지역 타입을 API 지역 코드로 변환
+ */
+export const REGION_TO_API_CODE: Record<string, string> = {
+  seoul: '003001',
+  busan: '003002',
+  daegu: '003003',
+  incheon: '003004',
+  gwangju: '003005',
+  daejeon: '003006',
+  ulsan: '003007',
+  gyeonggi: '003008',
+  gangwon: '003009',
+  chungbuk: '003010',
+  chungnam: '003011',
+  jeonbuk: '003012',
+  jeonnam: '003013',
+  gyeongbuk: '003014',
+  gyeongnam: '003015',
+  jeju: '003016',
+  sejong: '003017',
+};
+
+/**
+ * 지역 코드를 사용자 지역 타입으로 변환 (역매핑)
+ */
+export const API_CODE_TO_REGION: Record<string, string> = {
+  '003001': 'seoul',
+  '003002': 'busan',
+  '003003': 'daegu',
+  '003004': 'incheon',
+  '003005': 'gwangju',
+  '003006': 'daejeon',
+  '003007': 'ulsan',
+  '003008': 'gyeonggi',
+  '003009': 'gangwon',
+  '003010': 'chungbuk',
+  '003011': 'chungnam',
+  '003012': 'jeonbuk',
+  '003013': 'jeonnam',
+  '003014': 'gyeongbuk',
+  '003015': 'gyeongnam',
+  '003016': 'jeju',
+  '003017': 'sejong',
+};
+
+/**
+ * 지역명(한글)을 사용자 지역 타입으로 변환
+ */
+export const REGION_NAME_TO_CODE: Record<string, string> = {
+  '서울': 'seoul',
+  '서울시': 'seoul',
+  '서울특별시': 'seoul',
+  '부산': 'busan',
+  '부산시': 'busan',
+  '부산광역시': 'busan',
+  '대구': 'daegu',
+  '대구시': 'daegu',
+  '대구광역시': 'daegu',
+  '인천': 'incheon',
+  '인천시': 'incheon',
+  '인천광역시': 'incheon',
+  '광주': 'gwangju',
+  '광주시': 'gwangju',
+  '광주광역시': 'gwangju',
+  '대전': 'daejeon',
+  '대전시': 'daejeon',
+  '대전광역시': 'daejeon',
+  '울산': 'ulsan',
+  '울산시': 'ulsan',
+  '울산광역시': 'ulsan',
+  '세종': 'sejong',
+  '세종시': 'sejong',
+  '세종특별자치시': 'sejong',
+  '경기': 'gyeonggi',
+  '경기도': 'gyeonggi',
+  '강원': 'gangwon',
+  '강원도': 'gangwon',
+  '강원특별자치도': 'gangwon',
+  '충북': 'chungbuk',
+  '충청북도': 'chungbuk',
+  '충남': 'chungnam',
+  '충청남도': 'chungnam',
+  '전북': 'jeonbuk',
+  '전라북도': 'jeonbuk',
+  '전북특별자치도': 'jeonbuk',
+  '전남': 'jeonnam',
+  '전라남도': 'jeonnam',
+  '경북': 'gyeongbuk',
+  '경상북도': 'gyeongbuk',
+  '경남': 'gyeongnam',
+  '경상남도': 'gyeongnam',
+  '제주': 'jeju',
+  '제주도': 'jeju',
+  '제주특별자치도': 'jeju',
+  // 중앙부처 (전국 대상)
+  '중앙부처': 'all',
+  '전국': 'all',
+};

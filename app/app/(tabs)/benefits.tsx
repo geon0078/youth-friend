@@ -22,6 +22,7 @@ import { useBenefits } from '@/hooks/use-benefits';
 import { useTotalBenefits } from '@/hooks/use-total-benefits';
 import { useDebounce, useRecentSearches } from '@/hooks';
 import { useFilterStore } from '@/stores/filter-store';
+import { useUserStore } from '@/stores/user-store';
 import {
   BenefitCard,
   BenefitCardSkeleton,
@@ -49,7 +50,11 @@ const CARD_HEIGHT = 140;
 export default function BenefitsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const { data, isLoading, isRefetching, refresh } = useBenefits();
+  const profile = useUserStore((state) => state.profile);
+  const userRegion = profile?.region;
+
+  // 사용자 지역을 필터에 포함하여 혜택 조회
+  const { data, isLoading, isRefetching, refresh } = useBenefits({ region: userRegion });
   const {
     data: totalData,
     isLoading: isTotalLoading,
