@@ -2,6 +2,7 @@
  * 혜택 카드 컴포넌트
  * - 제목, 카테고리, 지원금액, 마감일 표시
  * - 마감 임박 배지
+ * - 자격 상태 배지 (Story 4.7)
  * - 검색어 하이라이팅 (Story 3.6)
  * - 탭 시 상세 화면 이동
  */
@@ -16,11 +17,13 @@ import {
 } from '@/design-system';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { DeadlineBadge } from './DeadlineBadge';
+import { EligibilityBadge } from '@/components/eligibility';
 import { HighlightedText } from '@/components/search';
 import { formatCurrency } from '@/utils/format-currency';
 import { getCategoryLabel, getCategoryIcon } from '@/utils/category';
 import { isDeadlineSoon, getDeadlineDescription } from '@/utils/deadline';
 import type { Benefit } from '@/types';
+import type { EligibilityStatus } from '@/types/models/eligibility';
 
 interface BenefitCardProps {
   /** 혜택 데이터 */
@@ -31,6 +34,12 @@ interface BenefitCardProps {
   colorScheme?: ColorSchemeName;
   /** 검색어 (하이라이팅용) */
   searchQuery?: string;
+  /** 자격 상태 (Story 4.7) */
+  eligibilityStatus?: EligibilityStatus;
+  /** 자격 배지 탭 핸들러 */
+  onEligibilityPress?: () => void;
+  /** 자격 배지 표시 여부 (기본: true if eligibilityStatus provided) */
+  showEligibilityBadge?: boolean;
 }
 
 /**
@@ -50,12 +59,16 @@ export function BenefitCard({
   onPress,
   colorScheme,
   searchQuery = '',
+  eligibilityStatus,
+  onEligibilityPress,
+  showEligibilityBadge = true,
 }: BenefitCardProps) {
   const isUrgent = isDeadlineSoon(benefit.deadline, 7);
   const amountText = benefit.amount
     ? formatCurrency(benefit.amount)
     : benefit.supportContent || '상세 내용 확인';
   const deadlineDesc = getDeadlineDescription(benefit.deadline);
+  const shouldShowEligibility = showEligibilityBadge && eligibilityStatus;
 
   const accessibilityLabel = `${benefit.title}. ${getCategoryLabel(benefit.category)}. ${amountText}. ${deadlineDesc}. 탭하여 상세 보기`;
 
@@ -71,7 +84,7 @@ export function BenefitCard({
       accessibilityLabel={accessibilityLabel}
       accessibilityHint="탭하면 혜택 상세 화면으로 이동합니다"
     >
-      {/* Header: Category + Deadline Badge */}
+      {/* Header: Category + Badges */}
       <View style={styles.header}>
         <View style={styles.categoryContainer}>
           <IconSymbol
@@ -83,7 +96,18 @@ export function BenefitCard({
             {getCategoryLabel(benefit.category)}
           </Text>
         </View>
-        {isUrgent && <DeadlineBadge deadline={benefit.deadline} />}
+        <View style={styles.badgeContainer}>
+          {shouldShowEligibility && (
+            <EligibilityBadge
+              status={eligibilityStatus}
+              onPress={onEligibilityPress}
+              colorScheme={colorScheme}
+              compact
+              displayMode="positive"
+            />
+          )}
+          {isUrgent && <DeadlineBadge deadline={benefit.deadline} />}
+        </View>
       </View>
 
       {/* Title */}
@@ -147,6 +171,11 @@ const styles = StyleSheet.create({
   categoryText: {
     ...Typography.captionBold,
     color: Palette.primary,
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   title: {
     ...Typography.bodyBold,
