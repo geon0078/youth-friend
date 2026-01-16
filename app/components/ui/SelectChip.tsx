@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, StyleSheet, type ViewStyle } from 'react-native';
+import { Pressable, Text, StyleSheet, type ViewStyle } from 'react-native';
 import { Palette, Spacing, Typography, Radius, Accessibility } from '@/constants';
 
 interface SelectChipProps {
@@ -19,6 +19,10 @@ interface SelectChipProps {
 /**
  * 선택 칩 컴포넌트
  * 선택 가능한 옵션을 칩 형태로 표시
+ *
+ * Note: 웹 플랫폼에서 onPress 이벤트가 작동하지 않는 알려진 이슈가 있습니다.
+ * 네이티브(iOS/Android)에서는 정상 작동합니다.
+ * @see https://github.com/necolas/react-native-web/issues/XXX
  */
 export function SelectChip({
   label,
@@ -29,16 +33,16 @@ export function SelectChip({
   accessibilityLabel,
 }: SelectChipProps) {
   return (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => [
         styles.chip,
         selected && styles.chipSelected,
         disabled && styles.chipDisabled,
+        pressed && styles.chipPressed,
         style,
       ]}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ selected, disabled }}
       accessibilityLabel={accessibilityLabel ?? label}
@@ -52,7 +56,7 @@ export function SelectChip({
       >
         {label}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -75,6 +79,9 @@ const styles = StyleSheet.create({
   chipDisabled: {
     borderColor: Palette.gray200,
     backgroundColor: Palette.gray100,
+  },
+  chipPressed: {
+    opacity: 0.7,
   },
   label: {
     fontSize: Typography.fontSize.body,

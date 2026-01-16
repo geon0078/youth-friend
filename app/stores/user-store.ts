@@ -72,7 +72,7 @@ export const useUserStore = create<UserStore>()(
 
       updateProfile: (updates) =>
         set((state) => ({
-          profile: state.profile ? { ...state.profile, ...updates } : null,
+          profile: { ...state.profile, ...updates } as UserProfile,
         })),
 
       clearProfile: () =>

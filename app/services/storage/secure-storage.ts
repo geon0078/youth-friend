@@ -1,4 +1,30 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+/**
+ * 웹 플랫폼용 localStorage 폴백
+ */
+const webStorage = {
+  async setItemAsync(key: string, value: string): Promise<void> {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  },
+  async getItemAsync(key: string): Promise<string | null> {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(key);
+    }
+    return null;
+  },
+  async deleteItemAsync(key: string): Promise<void> {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  },
+};
+
+// 플랫폼에 따른 스토리지 선택
+const storage = Platform.OS === 'web' ? webStorage : SecureStore;
 
 /**
  * 스토리지 에러 타입
@@ -89,7 +115,7 @@ export const secureStorage = {
    */
   async setItem(key: SecureStorageKey, value: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(key, value);
+      await storage.setItemAsync(key, value);
     } catch (error) {
       throw StorageError.save(key, error instanceof Error ? error : undefined);
     }
@@ -102,7 +128,7 @@ export const secureStorage = {
    */
   async getItem(key: SecureStorageKey): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(key);
+      return await storage.getItemAsync(key);
     } catch (error) {
       throw StorageError.load(key, error instanceof Error ? error : undefined);
     }
@@ -114,7 +140,7 @@ export const secureStorage = {
    */
   async removeItem(key: SecureStorageKey): Promise<void> {
     try {
-      await SecureStore.deleteItemAsync(key);
+      await storage.deleteItemAsync(key);
     } catch (error) {
       throw StorageError.delete(key, error instanceof Error ? error : undefined);
     }
@@ -127,7 +153,7 @@ export const secureStorage = {
   async setObject<T>(key: SecureStorageKey, value: T): Promise<void> {
     try {
       const jsonString = JSON.stringify(value);
-      await SecureStore.setItemAsync(key, jsonString);
+      await storage.setItemAsync(key, jsonString);
     } catch (error) {
       throw StorageError.save(key, error instanceof Error ? error : undefined);
     }
@@ -140,7 +166,7 @@ export const secureStorage = {
    */
   async getObject<T>(key: SecureStorageKey): Promise<T | null> {
     try {
-      const jsonString = await SecureStore.getItemAsync(key);
+      const jsonString = await storage.getItemAsync(key);
       if (jsonString === null) {
         return null;
       }
@@ -156,8 +182,8 @@ export const secureStorage = {
   async isAvailable(): Promise<boolean> {
     try {
       const testKey = '__test__';
-      await SecureStore.setItemAsync(testKey, 'test');
-      await SecureStore.deleteItemAsync(testKey);
+      await storage.setItemAsync(testKey, 'test');
+      await storage.deleteItemAsync(testKey);
       return true;
     } catch {
       return false;

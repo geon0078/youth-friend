@@ -32,6 +32,8 @@ export const CacheKeys = {
   FILTER_RESULTS: 'cache_filter_results_',
   /** API 응답 캐시 */
   API_RESPONSE: 'cache_api_',
+  /** 최근 검색어 */
+  RECENT_SEARCHES: 'cache_recent_searches',
 } as const;
 
 /**

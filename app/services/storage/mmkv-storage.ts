@@ -1,16 +1,73 @@
-import { createMMKV } from 'react-native-mmkv';
+import { Platform } from 'react-native';
 import type { StateStorage } from 'zustand/middleware';
+
+/**
+ * 웹 플랫폼용 localStorage 기반 MMKV 폴백
+ */
+const webMMKV = {
+  getString: (key: string): string | undefined => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(key) ?? undefined;
+    }
+    return undefined;
+  },
+  set: (key: string, value: string): void => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  },
+  remove: (key: string): void => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(key);
+    }
+  },
+  getAllKeys: (): string[] => {
+    if (typeof localStorage !== 'undefined') {
+      return Object.keys(localStorage);
+    }
+    return [];
+  },
+  contains: (key: string): boolean => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(key) !== null;
+    }
+    return false;
+  },
+  clearAll: (): void => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.clear();
+    }
+  },
+  get size(): number {
+    if (typeof localStorage !== 'undefined') {
+      let total = 0;
+      for (const key of Object.keys(localStorage)) {
+        total += (localStorage.getItem(key) || '').length;
+      }
+      return total;
+    }
+    return 0;
+  },
+};
 
 /**
  * MMKV 인스턴스 (일반 캐시용)
  * 민감하지 않은 데이터 저장: 앱 설정, 필터 상태, 캐시 등
  *
  * Note: react-native-mmkv는 네이티브 모듈이므로
- * Expo Go가 아닌 Development Build에서만 작동합니다.
+ * 웹에서는 localStorage 폴백 사용
  */
-const mmkv = createMMKV({
-  id: 'youth-friend-storage',
-});
+let mmkv: typeof webMMKV;
+
+if (Platform.OS === 'web') {
+  mmkv = webMMKV;
+} else {
+  // 네이티브에서만 MMKV 사용
+  const { createMMKV } = require('react-native-mmkv');
+  mmkv = createMMKV({
+    id: 'youth-friend-storage',
+  });
+}
 
 /**
  * Zustand persist 미들웨어용 MMKV 스토리지 어댑터

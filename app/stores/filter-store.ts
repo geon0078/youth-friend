@@ -14,8 +14,10 @@ interface FilterState {
  * 필터 스토어 액션 타입
  */
 interface FilterActions {
-  /** 카테고리 필터 설정 (FR7) */
-  setCategory: (category: BenefitCategory | null) => void;
+  /** 카테고리 토글 (다중 선택용) */
+  toggleCategory: (category: BenefitCategory) => void;
+  /** 카테고리 목록 설정 */
+  setCategories: (categories: BenefitCategory[]) => void;
   /** 검색어 설정 */
   setSearchQuery: (query: string) => void;
   /** 정렬 옵션 설정 */
@@ -30,10 +32,16 @@ type FilterStore = FilterState & FilterActions;
  * 기본 필터
  */
 const defaultFilter: BenefitFilter = {
-  category: null,
+  categories: [],
   searchQuery: '',
   sortBy: 'deadline',
 };
+
+/**
+ * 활성화된 필터가 있는지 확인하는 셀렉터
+ */
+export const selectHasActiveFilters = (state: FilterStore): boolean =>
+  state.filter.categories.length > 0 || state.filter.searchQuery !== '';
 
 /**
  * 필터 스토어
@@ -45,9 +53,21 @@ export const useFilterStore = create<FilterStore>()((set) => ({
   filter: defaultFilter,
 
   // Actions
-  setCategory: (category) =>
+  toggleCategory: (category) =>
+    set((state) => {
+      const currentCategories = state.filter.categories;
+      const isSelected = currentCategories.includes(category);
+      const newCategories = isSelected
+        ? currentCategories.filter((c) => c !== category)
+        : [...currentCategories, category];
+      return {
+        filter: { ...state.filter, categories: newCategories },
+      };
+    }),
+
+  setCategories: (categories) =>
     set((state) => ({
-      filter: { ...state.filter, category },
+      filter: { ...state.filter, categories },
     })),
 
   setSearchQuery: (searchQuery) =>

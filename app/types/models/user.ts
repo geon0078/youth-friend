@@ -167,8 +167,8 @@ export type TextSize = 'small' | 'medium' | 'large';
  * 혜택 필터 타입 (FR7 기반)
  */
 export interface BenefitFilter {
-  /** 카테고리 필터 */
-  category: BenefitCategory | null;
+  /** 카테고리 필터 (다중 선택 가능) */
+  categories: BenefitCategory[];
   /** 검색어 */
   searchQuery: string;
   /** 정렬 기준 */
