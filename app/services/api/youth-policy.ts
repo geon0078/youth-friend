@@ -1,19 +1,20 @@
 /**
  * 온통청년 API 서비스
  * https://youthcenter.go.kr
+ *
+ * 2026년 새 API 엔드포인트 사용
+ * - 엔드포인트: /go/ythip/getPlcy
+ * - 응답 형식: JSON
  */
 import { ApiError } from './client';
-import { parseXml, extractResultFromXml } from '@/utils/xml-parser';
 import type {
   YouthPolicyListParams,
   YouthPolicyListItem,
   YouthPolicyDetail,
-  YouthPolicyListResponse,
-  YouthPolicyDetailResponse,
 } from '@/types/api/youth-policy';
 
 /** API 기본 URL */
-const BASE_URL = 'https://www.youthcenter.go.kr/opi';
+const BASE_URL = 'https://www.youthcenter.go.kr/go/ythip';
 
 /** API 키 */
 const API_KEY = process.env.EXPO_PUBLIC_YOUTH_POLICY_API_KEY || '';
@@ -23,6 +24,57 @@ const TIMEOUT = 10000;
 
 /** 재시도 횟수 */
 const MAX_RETRIES = 3;
+
+/**
+ * 새 API 응답의 정책 아이템 타입
+ */
+interface NewApiPolicyItem {
+  plcyNo: string;
+  plcyNm: string;
+  plcyExplnCn: string;
+  plcySprtCn: string;
+  plcyKywdNm?: string;
+  lclsfNm: string;
+  mclsfNm?: string;
+  sprvsnInstCdNm?: string;
+  operInstCdNm?: string;
+  aplyYmd?: string;
+  bizPrdBgngYmd?: string;
+  bizPrdEndYmd?: string;
+  sprtTrgtMinAge?: string;
+  sprtTrgtMaxAge?: string;
+  refUrlAddr1?: string;
+  refUrlAddr2?: string;
+  aplyUrlAddr?: string;
+  plcyAplyMthdCn?: string;
+  srngMthdCn?: string;
+  sbmsnDcmntCn?: string;
+  addAplyQlfcCndCn?: string;
+  ptcpPrpTrgtCn?: string;
+  etcMttrCn?: string;
+  earnCndSeCd?: string;
+  earnMinAmt?: string;
+  earnMaxAmt?: string;
+  zipCd?: string;
+  rgtrInstCdNm?: string;
+  lastMdfcnDt?: string;
+}
+
+/**
+ * 새 API 응답 타입
+ */
+interface NewApiResponse {
+  resultCode: number;
+  resultMessage: string;
+  result: {
+    pagging: {
+      totCount: number;
+      pageNum: number;
+      pageSize: number;
+    };
+    youthPolicyList: NewApiPolicyItem[];
+  };
+}
 
 /**
  * 지수 백오프 딜레이 계산
@@ -37,12 +89,98 @@ function getRetryDelay(attempt: number): number {
 }
 
 /**
- * XML API 요청 수행
+ * 새 API 응답을 기존 타입으로 변환
  */
-async function fetchXml(url: string, params: Record<string, string | number | undefined>): Promise<string> {
-  // URL 파라미터 구성
+function convertToLegacyFormat(item: NewApiPolicyItem): YouthPolicyListItem {
+  // 대분류를 정책 유형 코드로 변환
+  const categoryToCode: Record<string, string> = {
+    '일자리': '023010',
+    '주거': '023020',
+    '교육': '023030',
+    '복지문화': '023040',
+    '참여권리': '023050',
+  };
+
+  // 지역 코드 추출 (zipCd 또는 rgtrInstCdNm에서)
+  const regionCode = item.zipCd || '';
+
+  return {
+    bizId: item.plcyNo,
+    polyBizSjnm: item.plcyNm,
+    polyItcnCn: item.plcyExplnCn,
+    sporCn: item.plcySprtCn,
+    rqutPrdCn: item.aplyYmd || (item.bizPrdEndYmd ? `~${item.bizPrdEndYmd}` : '상시'),
+    polyBizTy: categoryToCode[item.lclsfNm] || '023040',
+    polyBizSecd: regionCode,
+    polyBizSecdNm: item.rgtrInstCdNm || '',
+    cnsgNmor: item.sprvsnInstCdNm || item.operInstCdNm || '',
+  };
+}
+
+/**
+ * 새 API 응답을 상세 타입으로 변환
+ */
+function convertToDetailFormat(item: NewApiPolicyItem): YouthPolicyDetail {
+  const categoryToCode: Record<string, string> = {
+    '일자리': '023010',
+    '주거': '023020',
+    '교육': '023030',
+    '복지문화': '023040',
+    '참여권리': '023050',
+  };
+
+  // 나이 정보 생성
+  const minAge = item.sprtTrgtMinAge || '0';
+  const maxAge = item.sprtTrgtMaxAge || '0';
+  const ageInfo = minAge !== '0' || maxAge !== '0'
+    ? `만 ${minAge}세 ~ ${maxAge}세`
+    : '';
+
+  // 지역 코드
+  const regionCode = item.zipCd || '';
+
+  return {
+    bizId: item.plcyNo,
+    polyBizSjnm: item.plcyNm,
+    polyItcnCn: item.plcyExplnCn,
+    sporCn: item.plcySprtCn,
+    rqutPrdCn: item.aplyYmd || (item.bizPrdEndYmd ? `~${item.bizPrdEndYmd}` : '상시'),
+    polyBizTy: categoryToCode[item.lclsfNm] || '023040',
+    polyBizSecd: regionCode,
+    polyBizSecdNm: item.rgtrInstCdNm || '',
+    cnsgNmor: item.sprvsnInstCdNm || item.operInstCdNm || '',
+    // 상세 필드
+    polyBizSj: item.plcyExplnCn || '',
+    sporScvl: '', // 지원 규모 (새 API에 없음)
+    ageInfo,
+    accrRqisCn: '', // 학력 조건 (새 API에 없음)
+    splzRlmRqisCn: '', // 특화 분야 (새 API에 없음)
+    empmSttsCn: '', // 취업상태 (새 API에 없음)
+    majrRqisCn: '', // 전공 조건 (새 API에 없음)
+    prcpCn: item.addAplyQlfcCndCn || '',
+    prcpLmttTrgtCn: item.ptcpPrpTrgtCn || '',
+    rqutProcCn: item.plcyAplyMthdCn || '',
+    jdgnPresCn: item.srngMthdCn || '',
+    rqutUrla: item.aplyUrlAddr || item.refUrlAddr1 || '',
+    etct: item.etcMttrCn || '',
+    mngtMson: item.operInstCdNm || '', // 담당 기관명
+    mngtMsttNm: item.sprvsnInstCdNm || '',
+    rfcSiteUrla1: item.refUrlAddr1 || '',
+    rfcSiteUrla2: item.refUrlAddr2 || '',
+    lastModyYmd: item.lastMdfcnDt?.split(' ')[0] || '',
+  };
+}
+
+/**
+ * JSON API 요청 수행
+ */
+async function fetchJson<T>(
+  url: string,
+  params: Record<string, string | number | undefined>
+): Promise<T> {
   const searchParams = new URLSearchParams();
-  searchParams.append('openApiVlak', API_KEY);
+  searchParams.append('apiKeyNm', API_KEY);
+  searchParams.append('rtnType', 'json');
 
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== '') {
@@ -53,9 +191,9 @@ async function fetchXml(url: string, params: Record<string, string | number | un
   const fullUrl = `${url}?${searchParams.toString()}`;
 
   if (__DEV__) {
-    // API 키 마스킹하여 로그 출력
-    const maskedUrl = fullUrl.replace(/openApiVlak=[^&]+/, 'openApiVlak=***');
-    console.log('[YouthPolicy API]', maskedUrl);
+    const maskedUrl = fullUrl.replace(/apiKeyNm=[^&]+/, 'apiKeyNm=***');
+    console.log('[YouthPolicy API] URL:', maskedUrl);
+    console.log('[YouthPolicy API] API_KEY 존재:', !!API_KEY, 'length:', API_KEY?.length);
   }
 
   let lastError: Error | null = null;
@@ -73,7 +211,7 @@ async function fetchXml(url: string, params: Record<string, string | number | un
         const response = await fetch(fullUrl, {
           method: 'GET',
           headers: {
-            Accept: 'application/xml',
+            Accept: 'application/json',
           },
           signal: controller.signal,
         });
@@ -84,17 +222,15 @@ async function fetchXml(url: string, params: Record<string, string | number | un
           throw ApiError.http(response.status);
         }
 
-        const xml = await response.text();
+        const json = await response.json();
 
-        // 응답 결과 코드 확인
-        const result = extractResultFromXml(xml);
-        if (!result.success) {
-          throw new ApiError(result.message || 'API 응답 오류', 'http', {
-            code: result.code,
+        if (json.resultCode !== 200) {
+          throw new ApiError(json.resultMessage || 'API 응답 오류', 'http', {
+            code: json.resultCode,
           });
         }
 
-        return xml;
+        return json as T;
       } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
@@ -109,7 +245,6 @@ async function fetchXml(url: string, params: Record<string, string | number | un
         console.warn(`[YouthPolicy API] 시도 ${attempt + 1} 실패:`, lastError.message);
       }
 
-      // 재시도 불가능한 에러 확인
       if (error instanceof ApiError && error.type === 'http' && error.status && error.status < 500) {
         throw error;
       }
@@ -129,30 +264,17 @@ async function fetchXml(url: string, params: Record<string, string | number | un
 export async function fetchYouthPolicyList(
   params: YouthPolicyListParams = {}
 ): Promise<{ items: YouthPolicyListItem[]; totalCount: number; pageIndex: number }> {
-  const xml = await fetchXml(`${BASE_URL}/youthPlcyList.do`, {
-    pageIndex: params.pageIndex ?? 1,
-    display: params.display ?? 10,
-    bizTycdSel: params.bizTycdSel,
-    srchPolyBizSecd: params.srchPolyBizSecd,
-    query: params.query,
+  const response = await fetchJson<NewApiResponse>(`${BASE_URL}/getPlcy`, {
+    pageNum: params.pageIndex ?? 1,
+    pageSize: params.display ?? 10,
   });
 
-  const parsed = parseXml<YouthPolicyListResponse>(xml);
-  const body = parsed.response?.body;
-
-  if (!body) {
-    return { items: [], totalCount: 0, pageIndex: 1 };
-  }
-
-  let items: YouthPolicyListItem[] = [];
-  if (body.items?.item) {
-    items = Array.isArray(body.items.item) ? body.items.item : [body.items.item];
-  }
+  const items = response.result.youthPolicyList.map(convertToLegacyFormat);
 
   return {
     items,
-    totalCount: body.totalCount ?? 0,
-    pageIndex: body.pageIndex ?? 1,
+    totalCount: response.result.pagging.totCount,
+    pageIndex: response.result.pagging.pageNum,
   };
 }
 
@@ -164,14 +286,15 @@ export async function fetchYouthPolicyDetail(bizId: string): Promise<YouthPolicy
     throw new Error('bizId is required');
   }
 
-  const xml = await fetchXml(`${BASE_URL}/youthPlcyDtl.do`, {
-    bizId,
+  // 정책 번호로 단일 정책 조회 (목록에서 찾기)
+  const response = await fetchJson<NewApiResponse>(`${BASE_URL}/getPlcy`, {
+    pageNum: 1,
+    pageSize: 100,
   });
 
-  const parsed = parseXml<YouthPolicyDetailResponse>(xml);
-  const item = parsed.response?.body?.items?.item;
+  const item = response.result.youthPolicyList.find((p) => p.plcyNo === bizId);
 
-  return item ?? null;
+  return item ? convertToDetailFormat(item) : null;
 }
 
 /**

@@ -1,7 +1,16 @@
-import { SafeAreaView, ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import {
+  SafeAreaView,
+  ScrollView,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
+import { useRouter, type Href } from 'expo-router';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTotalBenefits, useBenefits } from '@/hooks';
 import {
   getSemanticColor,
   SemanticColors,
@@ -11,27 +20,45 @@ import {
   Typography,
 } from '@/design-system';
 import { SectionHeader, Card, Badge, PrimaryButton } from '@/components/design-system';
+import { TotalBenefitCard, TotalBenefitCardSkeleton } from '@/components/benefits';
+import type { Benefit } from '@/types';
 
-const recommendedBenefits = [
-  {
-    title: '청년 전세자금 지원',
-    summary: '보증금 이자 2%대로 고정, 서류 검토 도우미 제공',
-    category: '주거',
-    deadline: 'D-7',
-  },
-  {
-    title: '지역 청년 활동 포인트',
-    summary: '지역 행사 참여 시 월 3만원 포인트 적립 및 교통비 제공',
-    category: '지역생활',
-    deadline: 'D-15',
-  },
-  {
-    title: '취업 연계 교육 바우처',
-    summary: 'AI·데이터 교육 + 면접 지원금 30만원',
-    category: '커리어',
-    deadline: 'D-21',
-  },
-];
+/**
+ * 카테고리 코드를 한글 라벨로 변환
+ */
+function getCategoryLabel(category: string): string {
+  const labels: Record<string, string> = {
+    employment: '일자리',
+    housing: '주거',
+    education: '교육',
+    welfare: '복지',
+    culture: '문화',
+  };
+  return labels[category] || category;
+}
+
+/**
+ * D-day 계산
+ */
+function getDeadlineLabel(deadline?: string): string {
+  if (!deadline) return '상시';
+  if (deadline.includes('상시') || deadline.includes('수시')) return '상시';
+
+  // 날짜 파싱 시도 (YYYYMMDD 또는 YYYY-MM-DD)
+  const dateMatch = deadline.match(/(\d{4})[.-]?(\d{2})[.-]?(\d{2})/);
+  if (dateMatch) {
+    const endDate = new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`);
+    const now = new Date();
+    const diffTime = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return '마감';
+    if (diffDays === 0) return 'D-Day';
+    return `D-${diffDays}`;
+  }
+
+  return deadline.slice(0, 10); // 원본 날짜 표시
+}
 
 const quickActions = [
   { label: '온보딩 다시 시작', action: 'onboarding' },
@@ -50,8 +77,6 @@ const personaHighlights = [
   },
 ];
 
-type Benefit = (typeof recommendedBenefits)[number];
-
 export default function HomeScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
@@ -60,6 +85,17 @@ export default function HomeScreen() {
   const backgroundColor = getSemanticColor(scheme, 'background');
   const textColor = getSemanticColor(scheme, 'text');
   const mutedText = SemanticColors[resolvedScheme].mutedText;
+
+  // 총 혜택 금액 조회
+  const { data: totalBenefitsData, isLoading: isTotalBenefitsLoading } = useTotalBenefits();
+
+  // 추천 혜택 조회 (상위 3개만 표시)
+  const { data: benefitsData, isLoading: isBenefitsLoading, isError } = useBenefits();
+  const recommendedBenefits = benefitsData?.items.slice(0, 3) ?? [];
+
+  const handleTotalBenefitPress = () => {
+    router.push('/benefits' as Href);
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
@@ -83,11 +119,47 @@ export default function HomeScreen() {
           />
         </View>
 
+        {/* 총 혜택 금액 카드 */}
+        {isTotalBenefitsLoading ? (
+          <TotalBenefitCardSkeleton colorScheme={scheme} />
+        ) : totalBenefitsData ? (
+          <TotalBenefitCard
+            data={totalBenefitsData}
+            onPress={handleTotalBenefitPress}
+            colorScheme={scheme}
+          />
+        ) : null}
+
         <View style={styles.section}>
           <SectionHeader title="추천 혜택" subtitle="프로필 기반 큐레이션" />
-          {recommendedBenefits.map((benefit) => (
-            <BenefitCard key={benefit.title} benefit={benefit} />
-          ))}
+          {isBenefitsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={Palette.primary} />
+              <Text style={[styles.loadingText, { color: mutedText }]}>
+                혜택 정보를 불러오는 중...
+              </Text>
+            </View>
+          ) : isError ? (
+            <View style={styles.errorContainer}>
+              <Text style={[styles.errorText, { color: mutedText }]}>
+                혜택 정보를 불러오지 못했습니다.
+              </Text>
+            </View>
+          ) : recommendedBenefits.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: mutedText }]}>
+                표시할 혜택이 없습니다.
+              </Text>
+            </View>
+          ) : (
+            recommendedBenefits.map((benefit) => (
+              <BenefitCard
+                key={benefit.id}
+                benefit={benefit}
+                onPress={() => router.push(`/benefit/${benefit.id}` as Href)}
+              />
+            ))
+          )}
         </View>
 
         <View style={styles.section}>
@@ -127,16 +199,25 @@ export default function HomeScreen() {
   );
 }
 
-function BenefitCard({ benefit }: { benefit: Benefit }) {
+function BenefitCard({ benefit, onPress }: { benefit: Benefit; onPress?: () => void }) {
+  const deadlineLabel = getDeadlineLabel(benefit.deadline);
+  const isUrgent = deadlineLabel.startsWith('D-') && parseInt(deadlineLabel.slice(2)) <= 7;
+
   return (
-    <Card>
-      <View style={styles.benefitBadgeRow}>
-        <Badge label={benefit.category} />
-        <Badge label={benefit.deadline} tone="alert" />
-      </View>
-      <Text style={styles.benefitTitle}>{benefit.title}</Text>
-      <Text style={styles.benefitSummary}>{benefit.summary}</Text>
-    </Card>
+    <Pressable onPress={onPress}>
+      <Card>
+        <View style={styles.benefitBadgeRow}>
+          <Badge label={getCategoryLabel(benefit.category)} />
+          <Badge label={deadlineLabel} tone={isUrgent ? 'alert' : 'default'} />
+        </View>
+        <Text style={styles.benefitTitle} numberOfLines={2}>
+          {benefit.title}
+        </Text>
+        <Text style={styles.benefitSummary} numberOfLines={2}>
+          {benefit.description || benefit.supportContent || ''}
+        </Text>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -209,5 +290,27 @@ const styles = StyleSheet.create({
   },
   personaDescription: {
     lineHeight: 20,
+  },
+  loadingContainer: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  loadingText: {
+    fontSize: 14,
+  },
+  errorContainer: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+  },
+  emptyContainer: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
   },
 });

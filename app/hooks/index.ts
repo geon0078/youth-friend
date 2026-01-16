@@ -28,3 +28,24 @@ export {
   useRefreshNetworkStatus,
   type NetworkStatus,
 } from './use-network-status';
+
+// Total benefits hook
+export {
+  useTotalBenefits,
+  type UseTotalBenefitsResult,
+  type TotalBenefitsData,
+} from './use-total-benefits';
+
+// Search hooks
+export { useDebounce } from './use-debounce';
+export { useRecentSearches } from './use-recent-searches';
+
+// Eligibility hooks
+export {
+  useCheckEligibility,
+  useEligibilityBatch,
+  useInvalidateAllEligibility,
+  ELIGIBILITY_QUERY_KEY,
+  type UseCheckEligibilityResult,
+  type UseEligibilityBatchResult,
+} from './use-eligibility';

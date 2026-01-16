@@ -26,10 +26,25 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="benefits"
+        options={{
+          title: '혜택',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gift.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="timeline"
+        options={{
+          title: '타임라인',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="clock" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="explore"
         options={{
           title: '탐색',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          href: null, // 탭바에서 숨김
         }}
       />
       <Tabs.Screen
