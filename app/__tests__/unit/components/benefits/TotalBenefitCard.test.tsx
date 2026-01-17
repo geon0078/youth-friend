@@ -8,16 +8,18 @@ import type { TotalBenefitsData } from '@/hooks';
 
 const mockData: TotalBenefitsData = {
   totalAmount: 12000000,
-  formattedAmount: '약 1,200만원',
+  formattedAmount: '약 1,200만원 이상',
   benefitCount: 12,
   formattedCount: '12개 혜택',
+  parsedBenefitCount: 8,
+  coveragePercent: 67,
 };
 
 describe('TotalBenefitCard', () => {
   it('포맷팅된 금액을 표시한다', () => {
     const { getByText } = render(<TotalBenefitCard data={mockData} />);
 
-    expect(getByText('약 1,200만원')).toBeTruthy();
+    expect(getByText('약 1,200만원 이상')).toBeTruthy();
   });
 
   it('포맷팅된 혜택 개수를 표시한다', () => {
@@ -48,7 +50,7 @@ describe('TotalBenefitCard', () => {
     const { getByLabelText } = render(<TotalBenefitCard data={mockData} />);
 
     const element = getByLabelText(
-      '총 약 1,200만원 혜택 받기 가능. 12개 혜택. 탭하여 목록 보기'
+      '총 약 1,200만원 이상 혜택 받기 가능. 12개 혜택. 탭하여 목록 보기'
     );
     expect(element).toBeTruthy();
   });
@@ -65,7 +67,7 @@ describe('TotalBenefitCard', () => {
   it('onPress가 없어도 렌더링된다', () => {
     const { getByText } = render(<TotalBenefitCard data={mockData} />);
 
-    expect(getByText('약 1,200만원')).toBeTruthy();
+    expect(getByText('약 1,200만원 이상')).toBeTruthy();
   });
 });
 
