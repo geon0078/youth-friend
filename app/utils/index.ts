@@ -8,6 +8,7 @@ export * from './category';
 export * from './external-link';
 export * from './age-filter';
 export * from './document-parser';
+export * from './benefit-scoring';
 
 // Accessibility utilities
 export * from './accessibility';

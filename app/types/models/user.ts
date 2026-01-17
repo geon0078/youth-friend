@@ -192,9 +192,9 @@ export type BenefitCategory =
 
 /** 정렬 옵션 타입 */
 export type SortOption =
+  | 'recommended' // 추천순 (긴급도 40% + 가치 35% + 용이도 25%)
   | 'deadline' // 마감일순
-  | 'amount' // 금액순
-  | 'relevance'; // 관련도순
+  | 'amount'; // 금액순
 
 /**
  * 개인정보 동의 항목 타입 (FR4)

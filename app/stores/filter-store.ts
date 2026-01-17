@@ -34,7 +34,7 @@ type FilterStore = FilterState & FilterActions;
 const defaultFilter: BenefitFilter = {
   categories: [],
   searchQuery: '',
-  sortBy: 'deadline',
+  sortBy: 'recommended', // 기본값: 추천순
 };
 
 /**
