@@ -13,6 +13,7 @@ import {
   fetchTrainingCardList,
   fetchEmploymentProgramList,
 } from './employment24';
+import { fetchAllGov24Services } from './gov24';
 import { ApiError } from './client';
 import type {
   Benefit,
@@ -23,6 +24,7 @@ import type {
 } from '@/types/models/benefit';
 import type { YouthPolicyListItem, YouthPolicyDetail } from '@/types/api/youth-policy';
 import type { TrainingCardItem, EmploymentProgramItem } from '@/types/api/employment24';
+import type { Gov24ServiceListItem } from '@/types/api/gov24';
 
 // ========================================
 // 정규화 헬퍼 함수
@@ -50,26 +52,47 @@ function mapYouthPolicyCategory(polyBizTy: string): BenefitCategory {
 
 /**
  * 혜택 상태 판정
+ * @param endDateYmd 사업 종료일 (YYYYMMDD 형식)
+ * @param applicationPeriod 신청 기간 텍스트 (fallback용)
  */
-function determineBenefitStatus(deadline?: string | number): 'active' | 'upcoming' | 'ended' | 'unknown' {
-  if (!deadline) return 'unknown';
+function determineBenefitStatus(
+  endDateYmd?: string,
+  applicationPeriod?: string
+): 'active' | 'upcoming' | 'ended' | 'unknown' {
+  // 1. 사업 종료일(bizPrdEndYmd)로 우선 판정
+  if (endDateYmd) {
+    const endDateStr = String(endDateYmd);
+    // YYYYMMDD 형식 파싱
+    const dateMatch = endDateStr.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (dateMatch) {
+      const endDate = new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
 
-  // 숫자나 다른 타입일 경우 문자열로 변환
-  const deadlineStr = String(deadline);
-
-  // "상시", "수시" 등의 경우 활성 상태
-  if (deadlineStr.includes('상시') || deadlineStr.includes('수시')) {
-    return 'active';
+      if (endDate < now) return 'ended';
+      return 'active';
+    }
   }
 
-  // 날짜 파싱 시도
-  const dateMatch = deadlineStr.match(/(\d{4})[.-]?(\d{2})[.-]?(\d{2})/);
-  if (dateMatch) {
-    const endDate = new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`);
-    const now = new Date();
+  // 2. 신청 기간 텍스트로 fallback 판정
+  if (applicationPeriod) {
+    const periodStr = String(applicationPeriod);
 
-    if (endDate < now) return 'ended';
-    return 'active';
+    // "상시", "수시" 등의 경우 활성 상태
+    if (periodStr.includes('상시') || periodStr.includes('수시')) {
+      return 'active';
+    }
+
+    // 날짜 파싱 시도 (YYYY-MM-DD 또는 YYYY.MM.DD)
+    const dateMatch = periodStr.match(/(\d{4})[.-]?(\d{2})[.-]?(\d{2})/);
+    if (dateMatch) {
+      const endDate = new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      if (endDate < now) return 'ended';
+      return 'active';
+    }
   }
 
   return 'unknown';
@@ -79,6 +102,10 @@ function determineBenefitStatus(deadline?: string | number): 'active' | 'upcomin
  * 온통청년 정책 → Benefit 변환
  */
 function normalizeYouthPolicy(item: YouthPolicyListItem): Benefit {
+  // 나이 파싱 (문자열 → 숫자)
+  const minAge = item.sprtTrgtMinAge ? parseInt(item.sprtTrgtMinAge, 10) : undefined;
+  const maxAge = item.sprtTrgtMaxAge ? parseInt(item.sprtTrgtMaxAge, 10) : undefined;
+
   return {
     id: `youth-policy-${item.bizId}`,
     originalId: item.bizId,
@@ -89,9 +116,14 @@ function normalizeYouthPolicy(item: YouthPolicyListItem): Benefit {
     deadline: item.rqutPrdCn || undefined,
     category: mapYouthPolicyCategory(item.polyBizTy),
     requirements: [],
-    region: item.polyBizSecdNm || undefined,
+    region: item.polyBizSecdNm || item.rgtrInstCdNm || undefined,
     organization: item.cnsgNmor || undefined,
-    status: determineBenefitStatus(item.rqutPrdCn),
+    // 사업종료일(bizPrdEndYmd)로 상태 판정, fallback으로 신청기간 사용
+    status: determineBenefitStatus(item.bizPrdEndYmd, item.rqutPrdCn),
+    // 사용자 맞춤 필터링용 필드
+    minAge: minAge && !isNaN(minAge) ? minAge : undefined,
+    maxAge: maxAge && !isNaN(maxAge) ? maxAge : undefined,
+    endDate: item.bizPrdEndYmd || undefined,
   };
 }
 
@@ -184,6 +216,147 @@ function normalizeEmploymentProgram(item: EmploymentProgramItem): Benefit {
     requirements: item.pgmTarget ? [item.pgmTarget] : [],
     organization: item.orgNm || undefined,
     status: determineBenefitStatus(formatDate(item.pgmEndt)),
+  };
+}
+
+/**
+ * 보조금24 서비스분야 → BenefitCategory 매핑
+ */
+function mapGov24Category(serviceField: string): BenefitCategory {
+  const field = serviceField?.toLowerCase() || '';
+
+  // 고용, 사업 → employment
+  if (field.includes('고용') || field.includes('사업')) {
+    return 'employment';
+  }
+  // 주거 → housing
+  if (field.includes('주거')) {
+    return 'housing';
+  }
+  // 교육 → education
+  if (field.includes('교육')) {
+    return 'education';
+  }
+  // 문화 → culture
+  if (field.includes('문화')) {
+    return 'culture';
+  }
+  // 복지, 보건의료, 안전, 환경, 농림축산어업 → welfare
+  return 'welfare';
+}
+
+/**
+ * 보조금24 지원대상에서 나이 범위 추출
+ */
+function parseAgeFromGov24Target(
+  targetText: string
+): { minAge?: number; maxAge?: number } {
+  if (!targetText) return {};
+
+  // 청년 키워드 기반 기본 범위 설정
+  if (targetText.includes('청년')) {
+    // 기본 청년 범위: 19~34세
+    let minAge = 19;
+    let maxAge = 34;
+
+    // 구체적인 나이 범위 추출 시도
+    // 패턴: "19세~34세", "만 19세 이상 34세 이하", "19-34세" 등
+    const rangeMatch = targetText.match(/(\d{2})\s*[세~\-이상]\s*[~\-]?\s*(\d{2})\s*세?/);
+    if (rangeMatch) {
+      minAge = parseInt(rangeMatch[1], 10);
+      maxAge = parseInt(rangeMatch[2], 10);
+    }
+
+    // 단일 하한 추출: "만 19세 이상"
+    const minMatch = targetText.match(/(\d{2})\s*세\s*이상/);
+    if (minMatch) {
+      minAge = parseInt(minMatch[1], 10);
+    }
+
+    // 단일 상한 추출: "34세 이하"
+    const maxMatch = targetText.match(/(\d{2})\s*세\s*이하/);
+    if (maxMatch) {
+      maxAge = parseInt(maxMatch[1], 10);
+    }
+
+    return { minAge, maxAge };
+  }
+
+  // 대학생, 청소년 키워드
+  if (targetText.includes('대학생')) {
+    return { minAge: 19, maxAge: 29 };
+  }
+  if (targetText.includes('청소년')) {
+    return { minAge: 13, maxAge: 24 };
+  }
+
+  // 일반적인 나이 범위 추출
+  const generalRangeMatch = targetText.match(/(\d{2})\s*[세~\-]\s*[~\-]?\s*(\d{2})\s*세?/);
+  if (generalRangeMatch) {
+    return {
+      minAge: parseInt(generalRangeMatch[1], 10),
+      maxAge: parseInt(generalRangeMatch[2], 10),
+    };
+  }
+
+  return {};
+}
+
+/**
+ * 보조금24 신청기한으로 상태 판정
+ */
+function determineGov24Status(
+  deadline: string
+): 'active' | 'upcoming' | 'ended' | 'unknown' {
+  if (!deadline) return 'unknown';
+
+  const deadlineStr = deadline.toLowerCase();
+
+  // 상시, 수시 등은 활성 상태
+  if (
+    deadlineStr.includes('상시') ||
+    deadlineStr.includes('수시') ||
+    deadlineStr.includes('연중') ||
+    deadlineStr.includes('계속')
+  ) {
+    return 'active';
+  }
+
+  // 날짜 형식 파싱 시도 (YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD)
+  const dateMatch = deadline.match(/(\d{4})[.-]?(\d{2})[.-]?(\d{2})/);
+  if (dateMatch) {
+    const endDate = new Date(`${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    if (endDate < now) return 'ended';
+    return 'active';
+  }
+
+  return 'unknown';
+}
+
+/**
+ * 보조금24 서비스 → Benefit 변환
+ */
+function normalizeGov24Service(item: Gov24ServiceListItem): Benefit {
+  const ageRange = parseAgeFromGov24Target(item.지원대상 || '');
+
+  return {
+    id: `gov24-${item.서비스ID}`,
+    originalId: item.서비스ID,
+    source: 'gov24',
+    title: item.서비스명 || '',
+    description: item.서비스목적요약 || '',
+    supportContent: item.지원내용 || undefined,
+    deadline: item.신청기한 || undefined,
+    category: mapGov24Category(item.서비스분야 || ''),
+    requirements: item.선정기준 ? [item.선정기준] : [],
+    ageRequirement: item.지원대상 || undefined,
+    organization: item.소관기관명 || undefined,
+    status: determineGov24Status(item.신청기한 || ''),
+    minAge: ageRange.minAge,
+    maxAge: ageRange.maxAge,
   };
 }
 
@@ -301,6 +474,8 @@ export async function fetchAllBenefits(
   // 출처 필터에 따른 API 호출 결정
   const shouldFetchYouthPolicy = !filters?.source || filters.source === 'youth-policy';
   const shouldFetchEmployment24 = !filters?.source || filters.source === 'employment24';
+  // 보조금24는 명시적으로 includeGov24=true이거나 source='gov24'일 때만 로드 (지연 로드 최적화)
+  const shouldFetchGov24 = filters?.includeGov24 === true || filters?.source === 'gov24';
 
   // 지역 코드 변환 (사용자 지역 타입 → API 코드)
   const regionApiCode = filters?.region ? REGION_TO_API_CODE[filters.region] : undefined;
@@ -467,6 +642,41 @@ export async function fetchAllBenefits(
     }
   }
 
+  // 보조금24 API - 청년 대상 서비스 필터링하여 가져오기
+  if (shouldFetchGov24) {
+    promises.push(
+      (async () => {
+        try {
+          if (__DEV__) {
+            console.log('[Benefits] 보조금24 API 호출 시작...');
+          }
+
+          // 청년 대상 서비스만 필터링하여 조회
+          const gov24Services = await fetchAllGov24Services(true);
+
+          if (__DEV__) {
+            console.log(`[Benefits] 보조금24 API ${gov24Services.length}개 청년 대상 서비스 조회됨`);
+          }
+
+          const normalized = gov24Services.map(normalizeGov24Service);
+
+          // 카테고리 필터 적용
+          const filtered = filters?.category
+            ? normalized.filter((b) => b.category === filters.category)
+            : normalized;
+
+          results.push(...filtered);
+          totalCount += gov24Services.length;
+        } catch (error) {
+          if (__DEV__) {
+            console.warn('[Benefits] 보조금24 API 오류:', error);
+          }
+          errors.push(error instanceof Error ? error : new Error('보조금24 API 오류'));
+        }
+      })()
+    );
+  }
+
   await Promise.all(promises);
 
   if (__DEV__) {
@@ -503,10 +713,49 @@ export async function fetchAllBenefits(
     };
   }
 
-  // 클라이언트 측 지역 필터링 - 유연하게 적용
-  // 참고: 지역 필터링은 API 레벨에서 처리하므로, 클라이언트에서는 보조적으로만 적용
+  // ========================================
+  // 사용자 맞춤 필터링 적용
+  // ========================================
+
   let filteredResults = results;
-  if (filters?.region && filteredResults.length > 0) {
+
+  // 1. 마감 정책 필터링 (기본: true - 마감된 정책 숨김)
+  const hideEnded = filters?.hideEnded !== false; // undefined면 true
+  if (hideEnded) {
+    const beforeCount = filteredResults.length;
+    filteredResults = filteredResults.filter((b) => b.status !== 'ended');
+    if (__DEV__) {
+      console.log(`[Benefits] 마감 정책 필터링: ${beforeCount}개 → ${filteredResults.length}개 (${beforeCount - filteredResults.length}개 제외)`);
+    }
+  }
+
+  // 2. 나이 필터링 (사용자 birthYear 기반)
+  const filterByAge = filters?.filterByAge !== false; // undefined면 true
+  if (filterByAge && filters?.userBirthYear) {
+    const currentYear = new Date().getFullYear();
+    const userAge = currentYear - filters.userBirthYear;
+
+    const beforeCount = filteredResults.length;
+    filteredResults = filteredResults.filter((benefit) => {
+      // 나이 정보가 없는 경우 포함 (전체 대상 정책)
+      if (!benefit.minAge && !benefit.maxAge) return true;
+
+      const minAge = benefit.minAge ?? 0;
+      const maxAge = benefit.maxAge ?? 999;
+
+      // 사용자 나이가 정책의 대상 범위에 포함되는지 확인
+      return userAge >= minAge && userAge <= maxAge;
+    });
+
+    if (__DEV__) {
+      console.log(`[Benefits] 나이 필터링 (${userAge}세): ${beforeCount}개 → ${filteredResults.length}개 (${beforeCount - filteredResults.length}개 제외)`);
+    }
+  }
+
+  // 3. 클라이언트 측 지역 필터링 - 유연하게 적용
+  // 참고: 지역 필터링은 API 레벨에서 처리하므로, 클라이언트에서는 보조적으로만 적용
+  const filterByRegion = filters?.filterByRegion !== false; // undefined면 true
+  if (filterByRegion && filters?.region && filteredResults.length > 0) {
     const userRegion = filters.region.toLowerCase();
 
     // 사용자 지역의 한글명 찾기

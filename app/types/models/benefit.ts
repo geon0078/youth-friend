@@ -10,7 +10,7 @@ export type { BenefitCategory } from './user';
 /**
  * 혜택 출처
  */
-export type BenefitSource = 'youth-policy' | 'employment24';
+export type BenefitSource = 'youth-policy' | 'employment24' | 'gov24';
 
 /**
  * 혜택 상태
@@ -33,6 +33,18 @@ export interface BenefitFilters {
   page?: number;
   /** 페이지 크기 */
   pageSize?: number;
+  // === 사용자 맞춤 필터링 옵션 ===
+  /** 사용자 출생년도 (나이 필터용) */
+  userBirthYear?: number;
+  /** 마감된 정책 숨기기 (기본: true) */
+  hideEnded?: boolean;
+  /** 나이 필터 적용 (기본: true) */
+  filterByAge?: boolean;
+  /** 지역 필터 적용 (기본: true) */
+  filterByRegion?: boolean;
+  // === 성능 최적화 옵션 ===
+  /** 보조금24 데이터 포함 여부 (기본: false - 지연 로드) */
+  includeGov24?: boolean;
 }
 
 /**
@@ -73,6 +85,13 @@ export interface Benefit {
   detailUrl?: string;
   /** 상태 */
   status: BenefitStatus;
+  // === 사용자 맞춤 필터링용 필드 ===
+  /** 지원 대상 최소 나이 */
+  minAge?: number;
+  /** 지원 대상 최대 나이 */
+  maxAge?: number;
+  /** 사업 종료일 (YYYYMMDD) - 상태 판정용 */
+  endDate?: string;
 }
 
 /**

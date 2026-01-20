@@ -22,6 +22,9 @@ export {
   fetchCommonCodeList,
 } from './employment24';
 
+// 보조금24 API
+export { fetchGov24ServiceList, fetchAllGov24Services } from './gov24';
+
 // 통합 혜택 서비스
 export {
   fetchAllBenefits,

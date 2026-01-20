@@ -14,7 +14,7 @@
  * getDaysUntilDeadline('2026-01-10') // -6 (이미 지남)
  */
 export function getDaysUntilDeadline(deadline?: string): number | null {
-  if (!deadline) {
+  if (!deadline || typeof deadline !== 'string') {
     return null;
   }
 
@@ -129,7 +129,7 @@ export function getDeadlineText(deadline?: string): string {
  * formatDeadlineDate('상시') // "상시"
  */
 export function formatDeadlineDate(deadline?: string): string {
-  if (!deadline) {
+  if (!deadline || typeof deadline !== 'string') {
     return '';
   }
 

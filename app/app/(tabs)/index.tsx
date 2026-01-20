@@ -42,7 +42,7 @@ function getCategoryLabel(category: string): string {
  * D-day 계산
  */
 function getDeadlineLabel(deadline?: string): string {
-  if (!deadline) return '상시';
+  if (!deadline || typeof deadline !== 'string') return '상시';
   if (deadline.includes('상시') || deadline.includes('수시')) return '상시';
 
   // 날짜 파싱 시도 (YYYYMMDD 또는 YYYY-MM-DD)
