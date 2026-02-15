@@ -30,22 +30,19 @@ import {
   TotalBenefitCardSkeleton,
   EmptyBenefitsList,
   CategoryFilter,
+  SourceFilter,
   SortTabs,
   BenefitSection,
+  PersonalFilterToggle,
 } from '@/components/benefits';
 import {
   SearchBar,
   RecentSearchesList,
   EmptySearchResults,
 } from '@/components/search';
-import {
-  sortBenefits,
-  getUrgentBenefits,
-  getHighValueBenefits,
-  type ScoredBenefit,
-} from '@/utils/benefit-scoring';
+import { sortBenefits, getUrgentBenefits, getHighValueBenefits } from '@/utils/benefit-scoring';
 import { Palette, Spacing, Typography, getSemanticColor } from '@/design-system';
-import type { Benefit, SortOption } from '@/types';
+import type { SortOption } from '@/types';
 
 /** 디바운스 지연 시간 (ms) */
 const DEBOUNCE_DELAY = 300;
@@ -59,14 +56,32 @@ export default function BenefitsScreen() {
   const colorScheme = useColorScheme();
   const profile = useUserStore((state) => state.profile);
   const userRegion = profile?.region;
+  const userBirthYear = profile?.birthYear;
 
-  // 사용자 지역을 필터에 포함하여 혜택 조회
-  const { data, isLoading, isRefetching, refresh } = useBenefits({ region: userRegion });
+  // 맞춤 필터 옵션 가져오기
+  const { filter, personalFilters, setSearchQuery, setSortBy } = useFilterStore();
+
+  // 사용자 맞춤 필터를 적용하여 혜택 조회
+  // - 마감 정책 숨기기 (hideEnded)
+  // - 나이 필터링 (filterByAge + userBirthYear)
+  // - 지역 필터링 (filterByRegion + userRegion)
+  const { data, isLoading, isRefetching, refresh } = useBenefits({
+    region: userRegion,
+    userBirthYear: personalFilters.filterByAge ? userBirthYear : undefined,
+    hideEnded: personalFilters.hideEnded,
+    filterByAge: personalFilters.filterByAge,
+    filterByRegion: personalFilters.filterByRegion,
+  });
   const {
     data: totalData,
     isLoading: isTotalLoading,
-  } = useTotalBenefits();
-  const { filter, setSearchQuery, setSortBy } = useFilterStore();
+  } = useTotalBenefits({
+    region: userRegion,
+    userBirthYear: personalFilters.filterByAge ? userBirthYear : undefined,
+    hideEnded: personalFilters.hideEnded,
+    filterByAge: personalFilters.filterByAge,
+    filterByRegion: personalFilters.filterByRegion,
+  });
   const { searches, addSearch, removeSearch, clearAll } = useRecentSearches();
 
   // 검색 상태 관리
@@ -95,6 +110,11 @@ export default function BenefitsScreen() {
 
     let items = data.items;
 
+    // 출처 필터링 (단일 선택)
+    if (filter.source !== null) {
+      items = items.filter((item) => item.source === filter.source);
+    }
+
     // 카테고리 필터링 (다중 선택)
     if (filter.categories.length > 0) {
       items = items.filter((item) =>
@@ -114,7 +134,7 @@ export default function BenefitsScreen() {
     }
 
     return items;
-  }, [data?.items, filter.categories, filter.searchQuery]);
+  }, [data?.items, filter.source, filter.categories, filter.searchQuery]);
 
   // 스코어링 및 정렬 적용
   const sortedBenefits = useMemo(() => {
@@ -229,7 +249,11 @@ export default function BenefitsScreen() {
               onSortChange={handleSortChange}
               colorScheme={colorScheme}
             />
-            <CategoryFilter colorScheme={colorScheme} />
+            <View style={styles.filterRow}>
+              <CategoryFilter colorScheme={colorScheme} />
+              <PersonalFilterToggle colorScheme={colorScheme} />
+            </View>
+            <SourceFilter colorScheme={colorScheme} />
           </View>
           <View style={styles.skeletonList}>
             {Array.from({ length: SKELETON_COUNT }).map(renderSkeleton)}
@@ -283,7 +307,14 @@ export default function BenefitsScreen() {
                 onSortChange={handleSortChange}
                 colorScheme={colorScheme}
               />
-              <CategoryFilter colorScheme={colorScheme} />
+              <View style={styles.filterRow}>
+                <CategoryFilter colorScheme={colorScheme} />
+                <PersonalFilterToggle
+                  colorScheme={colorScheme}
+                  filteredCount={data?.items?.length}
+                />
+              </View>
+              <SourceFilter colorScheme={colorScheme} />
             </View>
           }
           ListEmptyComponent={
@@ -361,7 +392,14 @@ export default function BenefitsScreen() {
                   onSortChange={handleSortChange}
                   colorScheme={colorScheme}
                 />
-                <CategoryFilter colorScheme={colorScheme} />
+                <View style={styles.filterRow}>
+                  <CategoryFilter colorScheme={colorScheme} />
+                  <PersonalFilterToggle
+                    colorScheme={colorScheme}
+                    filteredCount={data?.items?.length}
+                  />
+                </View>
+                <SourceFilter colorScheme={colorScheme} />
               </View>
             );
           }
@@ -449,6 +487,13 @@ const styles = StyleSheet.create({
   headerContainer: {
     marginBottom: Spacing.lg,
     gap: Spacing.md,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
   },
   contentContainer: {
     gap: Spacing.md,

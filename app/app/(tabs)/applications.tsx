@@ -28,7 +28,6 @@ import {
   getSemanticColor,
 } from '@/design-system';
 import type { SavedApplication, ApplicationStatus } from '@/types/models/application';
-import { APPLICATION_STATUS_LABELS } from '@/types/models/application';
 
 /**
  * 상태 필터 칩
@@ -109,7 +108,7 @@ function EmptyState({ colorScheme }: { colorScheme: ReturnType<typeof useColorSc
         저장된 신청이 없습니다
       </Text>
       <Text style={[styles.emptyDescription, { color: mutedTextColor }]}>
-        혜택 상세 페이지에서 "나중에 하기"를 눌러{'\n'}
+        혜택 상세 페이지에서 &quot;나중에 하기&quot;를 눌러{'\n'}
         신청을 저장하고 관리하세요
       </Text>
       <Pressable
@@ -136,7 +135,6 @@ export default function ApplicationsScreen() {
 
   const {
     applications,
-    isLoading,
     countByStatus,
     removeApplication,
     updateStatus,

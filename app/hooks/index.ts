@@ -16,6 +16,11 @@ export {
 } from './use-benefits';
 
 export {
+  useBenefitsMetadata,
+  type BenefitsMetadata,
+} from './use-benefits-metadata';
+
+export {
   useBenefitDetail,
   BENEFIT_DETAIL_QUERY_KEY,
   type UseBenefitDetailResult,

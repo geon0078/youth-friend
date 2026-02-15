@@ -2,7 +2,7 @@
  * 알림 내역 화면
  * Story 6.7: Implement Notification History Screen
  */
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useNotifications } from '@/hooks';
 import { NotificationList } from '@/components/notifications';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import {
-  Palette,
-  Spacing,
-  Radius,
-  Typography,
-  getSemanticColor,
-} from '@/design-system';
+import { Palette, Spacing, Typography, getSemanticColor } from '@/design-system';
 import { clearAllNotifications } from '@/services/notifications';
 
 export default function NotificationsScreen() {
@@ -36,7 +30,6 @@ export default function NotificationsScreen() {
   const backgroundColor = getSemanticColor(colorScheme, 'background');
   const surfaceColor = getSemanticColor(colorScheme, 'surface');
   const textColor = getSemanticColor(colorScheme, 'text');
-  const mutedTextColor = getSemanticColor(colorScheme, 'mutedText');
 
   // 전체 읽음 처리
   const handleMarkAllAsRead = useCallback(() => {

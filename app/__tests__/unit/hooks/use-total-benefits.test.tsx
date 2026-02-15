@@ -123,7 +123,7 @@ describe('useTotalBenefits', () => {
     });
 
     // 1200만원 포맷팅
-    expect(result.current.data?.formattedAmount).toBe('약 1,2백만원');
+    expect(result.current.data?.formattedAmount).toBe('약 1,200만원 이상');
   });
 
   it('혜택 개수를 계산한다', async () => {

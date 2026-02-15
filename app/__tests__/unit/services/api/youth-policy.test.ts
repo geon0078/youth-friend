@@ -142,33 +142,43 @@ describe('youth-policy API', () => {
         .mockResolvedValueOnce({ ok: false, status: 500 })
         .mockResolvedValueOnce({ ok: false, status: 500 });
 
-      const promise = fetchYouthPolicyList();
+      const promise = fetchYouthPolicyList().catch((err) => err as Error);
 
       // 재시도 딜레이 처리
       await jest.runAllTimersAsync();
 
-      await expect(promise).rejects.toBeInstanceOf(ApiError);
+      const error = await promise;
+      expect(error).toBeInstanceOf(ApiError);
       expect(mockFetch).toHaveBeenCalledTimes(4); // 초기 + 3회 재시도
     });
 
     it('타임아웃 시 에러를 던진다', async () => {
-      mockFetch.mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(
-              () => resolve({ ok: true, json: () => Promise.resolve(mockListResponseJson) }),
-              15000
-            );
-          })
+      mockFetch.mockImplementation((_, options) =>
+        new Promise((resolve, reject) => {
+          const signal = options?.signal as AbortSignal | undefined;
+          if (signal) {
+            signal.addEventListener('abort', () => {
+              const abortError = new Error('AbortError');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            });
+          }
+
+          setTimeout(
+            () => resolve({ ok: true, json: () => Promise.resolve(mockListResponseJson) }),
+            15000
+          );
+        })
       );
 
-      const promise = fetchYouthPolicyList();
+      const promise = fetchYouthPolicyList().catch((err) => err as Error);
 
       // 타임아웃 트리거
       jest.advanceTimersByTime(10000);
       await jest.runAllTimersAsync();
 
-      await expect(promise).rejects.toThrow();
+      const error = await promise;
+      expect(error).toBeInstanceOf(ApiError);
     });
   });
 

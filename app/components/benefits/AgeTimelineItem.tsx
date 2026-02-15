@@ -11,13 +11,7 @@ import {
   StyleSheet,
   type ColorSchemeName,
 } from 'react-native';
-import {
-  Palette,
-  Spacing,
-  Radius,
-  Typography,
-  getSemanticColor,
-} from '@/design-system';
+import { Palette, Spacing, Typography, getSemanticColor } from '@/design-system';
 
 interface AgeTimelineItemProps {
   /** 나이 */

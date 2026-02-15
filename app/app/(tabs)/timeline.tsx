@@ -21,12 +21,7 @@ import {
   BenefitCardSkeleton,
   EmptyBenefitsList,
 } from '@/components/benefits';
-import {
-  Palette,
-  Spacing,
-  Typography,
-  getSemanticColor,
-} from '@/design-system';
+import { Spacing, Typography, getSemanticColor } from '@/design-system';
 import {
   calculateAge,
   getBenefitsByAge,

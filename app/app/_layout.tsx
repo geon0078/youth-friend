@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
@@ -8,8 +8,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { QueryProvider } from '@/providers';
 import { ErrorBoundary } from '@/components/error';
 import { initSentry } from '@/services/monitoring';
-import { sessionManager } from '@/services/auth';
-import { authService } from '@/services/auth';
+import { authService, sessionManager } from '@/services/auth';
 
 // Sentry 초기화 (앱 시작 시 한 번만)
 initSentry();
@@ -17,7 +16,6 @@ initSentry();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
-  const segments = useSegments();
 
   // 세션 매니저 초기화 및 타임아웃 처리
   useEffect(() => {

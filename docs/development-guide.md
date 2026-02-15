@@ -17,6 +17,25 @@
 
 ## 설치 및 실행
 
+## 환경 변수 설정
+
+프로젝트별로 `.env.example`를 복사해 `.env`를 생성한 뒤 필요한 값을 채워주세요.
+
+```bash
+# 앱 (Expo)
+cp app/.env.example app/.env
+
+# 웹 프론트엔드
+cp frontend/.env.example frontend/.env
+
+# 백엔드
+cp backend/.env.example backend/.env
+```
+
+필수 키 목록은 각 `.env.example`에 정리되어 있습니다.
+
+---
+
 ### 1. 의존성 설치
 
 ```bash

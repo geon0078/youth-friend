@@ -20,7 +20,6 @@ const SORT_OPTIONS: { key: SortOption; label: string; icon: string }[] = [
 
 export function SortTabs({ selectedSort, onSortChange, colorScheme }: SortTabsProps) {
   const backgroundColor = getSemanticColor(colorScheme, 'surface');
-  const textColor = getSemanticColor(colorScheme, 'text');
   const mutedColor = getSemanticColor(colorScheme, 'mutedText');
 
   return (

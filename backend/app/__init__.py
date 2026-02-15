@@ -1,0 +1,1 @@
+"""Youth Friend FastAPI backend."""

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -10,7 +11,7 @@ import {
 import { useRouter, type Href } from 'expo-router';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useTotalBenefits, useBenefits } from '@/hooks';
+import { useTotalBenefits, useBenefits, useSavedApplications } from '@/hooks';
 import { useUserStore } from '@/stores/user-store';
 import {
   getSemanticColor,
@@ -22,21 +23,8 @@ import {
 } from '@/design-system';
 import { SectionHeader, Card, Badge, PrimaryButton } from '@/components/design-system';
 import { TotalBenefitCard, TotalBenefitCardSkeleton } from '@/components/benefits';
+import { getCategoryLabel } from '@/utils/category';
 import type { Benefit } from '@/types';
-
-/**
- * 카테고리 코드를 한글 라벨로 변환
- */
-function getCategoryLabel(category: string): string {
-  const labels: Record<string, string> = {
-    employment: '일자리',
-    housing: '주거',
-    education: '교육',
-    welfare: '복지',
-    culture: '문화',
-  };
-  return labels[category] || category;
-}
 
 /**
  * D-day 계산
@@ -61,22 +49,6 @@ function getDeadlineLabel(deadline?: string): string {
   return deadline.slice(0, 10); // 원본 날짜 표시
 }
 
-const quickActions = [
-  { label: '온보딩 다시 시작', action: 'onboarding' },
-  { label: '혜택 즐겨찾기', action: 'favorites' },
-  { label: '신청 체크리스트', action: 'checklist' },
-];
-
-const personaHighlights = [
-  {
-    name: '자립 준비형',
-    description: '주거·금융 혜택을 우선 추천하고 신청 일정과 서류를 한 번에 정리합니다.',
-  },
-  {
-    name: '커리어 도약형',
-    description: '취업 연계 프로그램, 교육 바우처, 면접 지원을 묶어서 보여줍니다.',
-  },
-];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -84,20 +56,113 @@ export default function HomeScreen() {
   const resolvedScheme = scheme === 'dark' ? 'dark' : 'light';
   const profile = useUserStore((state) => state.profile);
   const userRegion = profile?.region;
+  const userBirthYear = profile?.birthYear;
+  const { applications, deadlineApproaching, countByStatus } = useSavedApplications();
 
   const backgroundColor = getSemanticColor(scheme, 'background');
   const textColor = getSemanticColor(scheme, 'text');
   const mutedText = SemanticColors[resolvedScheme].mutedText;
 
   // 총 혜택 금액 조회 - 사용자 지역 기반
-  const { data: totalBenefitsData, isLoading: isTotalBenefitsLoading } = useTotalBenefits({ region: userRegion });
+  const { data: totalBenefitsData, isLoading: isTotalBenefitsLoading } = useTotalBenefits({
+    region: userRegion,
+    userBirthYear,
+    hideEnded: true,
+    filterByAge: true,
+    filterByRegion: true,
+  });
 
   // 추천 혜택 조회 (상위 3개만 표시) - 사용자 지역 기반
-  const { data: benefitsData, isLoading: isBenefitsLoading, isError } = useBenefits({ region: userRegion });
+  const { data: benefitsData, isLoading: isBenefitsLoading, isError } = useBenefits({
+    region: userRegion,
+    userBirthYear,
+    hideEnded: true,
+    filterByAge: true,
+    filterByRegion: true,
+  });
   // 마감된 혜택 제외하고 상위 3개만 표시
   const recommendedBenefits = (benefitsData?.items ?? [])
     .filter((b) => b.status !== 'ended')
     .slice(0, 3);
+
+  const quickActions = useMemo(() => {
+    const totalCount = benefitsData?.items.length ?? 0;
+    const savedCount = applications.length;
+    const preparingCount = countByStatus.preparing ?? 0;
+    const deadlineCount = deadlineApproaching.length;
+
+    const actions = [
+      {
+        key: 'benefits',
+        label: '혜택 둘러보기',
+        value: `${totalCount.toLocaleString()}건`,
+        route: '/(tabs)/benefits',
+      },
+      {
+        key: 'applications',
+        label: '신청 관리',
+        value: `${savedCount.toLocaleString()}건`,
+        route: '/(tabs)/applications',
+      },
+      {
+        key: 'deadlines',
+        label: '마감 임박',
+        value: `${deadlineCount.toLocaleString()}건`,
+        route: '/(tabs)/applications',
+      },
+    ];
+
+    if (!profile) {
+      actions.unshift({
+        key: 'onboarding',
+        label: '온보딩 다시 시작',
+        value: '맞춤 혜택 설정',
+        route: '/onboarding',
+      });
+    } else if (preparingCount > 0) {
+      actions[1] = {
+        key: 'applications',
+        label: '신청 진행',
+        value: `${preparingCount.toLocaleString()}건`,
+        route: '/(tabs)/applications',
+      };
+    }
+
+    return actions.slice(0, 3);
+  }, [applications.length, benefitsData?.items.length, countByStatus.preparing, deadlineApproaching.length, profile]);
+
+  const personaHighlights = useMemo(() => {
+    const items = benefitsData?.items ?? [];
+    if (items.length === 0) {
+      return [
+        {
+          name: '데이터 준비 중',
+          description: '최신 혜택 데이터를 불러오고 있습니다.',
+        },
+      ];
+    }
+
+    const categoryCounts = items.reduce<Record<string, number>>((acc, benefit) => {
+      acc[benefit.category] = (acc[benefit.category] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const topCategories = Object.entries(categoryCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2);
+
+    return topCategories.map(([category, count], index) => {
+      const label = getCategoryLabel(category as Benefit['category']);
+      const description = index === 0
+        ? `${label} 혜택이 ${count}건으로 가장 많아요. 지금 바로 확인해보세요.`
+        : `${label} 혜택도 ${count}건 있습니다. 맞춤 추천에 포함됩니다.`;
+
+      return {
+        name: `${label} 우선 추천`,
+        description,
+      };
+    });
+  }, [benefitsData?.items]);
 
   const handleTotalBenefitPress = () => {
     router.push('/benefits' as Href);
@@ -173,19 +238,24 @@ export default function HomeScreen() {
           <View style={styles.quickGrid}>
             {quickActions.map((item) => (
               <Pressable
-                key={item.action}
+                key={item.key}
                 style={[
                   styles.quickAction,
                   { backgroundColor: getSemanticColor(scheme, 'quickAction') },
-                ]}>
+                ]}
+                onPress={() => router.push(item.route as Href)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.label} ${item.value}`}
+              >
                 <Text style={[styles.quickActionLabel, { color: textColor }]}>{item.label}</Text>
+                <Text style={[styles.quickActionValue, { color: mutedText }]}>{item.value}</Text>
               </Pressable>
             ))}
           </View>
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="페르소나 하이라이트" subtitle="온보딩에서 선택한 유형" />
+          <SectionHeader title="페르소나 하이라이트" subtitle="혜택 데이터 기반" />
           {personaHighlights.map((persona) => (
             <View
               key={persona.name}
@@ -279,9 +349,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: '30%',
     alignItems: 'center',
+    gap: 4,
   },
   quickActionLabel: {
     fontWeight: '600',
+  },
+  quickActionValue: {
+    fontSize: 12,
   },
   personaCard: {
     borderRadius: Radius.lg,

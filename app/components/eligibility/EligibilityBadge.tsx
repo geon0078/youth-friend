@@ -5,7 +5,7 @@
  * 혜택 카드에서 자격 충족 여부를 한눈에 확인할 수 있는 배지
  */
 import { Pressable, Text, StyleSheet, type ColorSchemeName } from 'react-native';
-import { Palette, Spacing, Radius, Typography, getSemanticColor } from '@/design-system';
+import { Palette, Spacing, Radius, Typography } from '@/design-system';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { EligibilityStatus } from '@/types/models/eligibility';
 

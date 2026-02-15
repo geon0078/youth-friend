@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useRouter, Redirect } from 'expo-router';
+import { Redirect } from 'expo-router';
 
 import { Palette } from '@/constants';
 import { useUserStore } from '@/stores';
@@ -13,7 +13,6 @@ import { authService } from '@/services/auth';
  * - 적절한 화면으로 리다이렉트
  */
 export default function Index() {
-  const router = useRouter();
   const { isOnboarded } = useUserStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isPinSet, setIsPinSet] = useState(false);

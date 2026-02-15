@@ -96,7 +96,6 @@ export function EligibilityCheckButton({
   colorScheme,
 }: EligibilityCheckButtonProps) {
   const surfaceColor = getSemanticColor(colorScheme, 'surface');
-  const textColor = getSemanticColor(colorScheme, 'text');
   const mutedTextColor = getSemanticColor(colorScheme, 'mutedText');
 
   // 프로필 미설정 상태

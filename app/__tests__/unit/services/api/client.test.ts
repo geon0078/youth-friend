@@ -16,7 +16,7 @@ jest.useFakeTimers();
 
 describe('apiClient', () => {
   beforeEach(() => {
-    mockFetch.mockClear();
+    mockFetch.mockReset();
     jest.clearAllTimers();
   });
 
@@ -81,27 +81,30 @@ describe('apiClient', () => {
 
   describe('timeout', () => {
     it('10초 후 타임아웃 에러를 발생시킨다', async () => {
-      // AbortController mock
-      const abortMock = jest.fn();
-      const originalAbortController = global.AbortController;
-      global.AbortController = jest.fn().mockImplementation(() => ({
-        signal: { aborted: false },
-        abort: abortMock,
-      })) as any;
+      mockFetch.mockImplementation((_, options) =>
+        new Promise((resolve, reject) => {
+          const signal = options?.signal as AbortSignal | undefined;
+          if (signal) {
+            signal.addEventListener('abort', () => {
+              const abortError = new Error('AbortError');
+              abortError.name = 'AbortError';
+              reject(abortError);
+            });
+          }
+        })
+      );
 
-      mockFetch.mockImplementationOnce(() => new Promise(() => {})); // Never resolves
-
-      const requestPromise = apiClient.get('https://api.test.com/slow');
+      const requestPromise = apiClient.get('https://api.test.com/slow', { retries: 0 })
+        .catch((err) => err as ApiError);
 
       // Fast-forward timers
       jest.advanceTimersByTime(10000);
+      await jest.runAllTimersAsync();
 
-      await expect(requestPromise).rejects.toThrow(ApiError);
-      await expect(requestPromise).rejects.toMatchObject({
-        type: 'timeout',
-      });
+      const error = await requestPromise;
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error).toMatchObject({ type: 'timeout' });
 
-      global.AbortController = originalAbortController;
     });
   });
 
@@ -117,12 +120,13 @@ describe('apiClient', () => {
           json: async () => ({ success: true }),
         });
 
-      const requestPromise = apiClient.get('https://api.test.com/data');
+      const requestPromise = apiClient.get('https://api.test.com/data').catch((err) => err as ApiError);
 
       // Fast-forward through retries (1s, 2s, 4s delays with jitter)
       for (let i = 0; i < 3; i++) {
         await Promise.resolve(); // Let current attempt fail
         jest.advanceTimersByTime(10000); // More than max delay
+        await jest.runAllTimersAsync();
       }
 
       const result = await requestPromise;
@@ -143,11 +147,13 @@ describe('apiClient', () => {
           json: async () => ({ success: true }),
         });
 
-      const requestPromise = apiClient.get('https://api.test.com/data');
+      const requestPromise = apiClient.get('https://api.test.com/data')
+        .catch((err) => err as ApiError);
 
       // Fast-forward through retry
       await Promise.resolve();
-      jest.advanceTimersByTime(2000);
+      jest.advanceTimersByTime(10000);
+      await jest.runAllTimersAsync();
 
       const result = await requestPromise;
       expect(result).toEqual({ success: true });
@@ -172,17 +178,18 @@ describe('apiClient', () => {
     it('최대 재시도 횟수 초과 시 마지막 에러를 throw한다', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
-      const requestPromise = apiClient.get('https://api.test.com/data');
+      const requestPromise = apiClient.get('https://api.test.com/data')
+        .catch((err) => err as ApiError);
 
       // Fast-forward through all retries
       for (let i = 0; i < 4; i++) {
         await Promise.resolve();
         jest.advanceTimersByTime(10000);
+        await jest.runAllTimersAsync();
       }
 
-      await expect(requestPromise).rejects.toMatchObject({
-        type: 'network',
-      });
+      const error = await requestPromise;
+      expect(error).toMatchObject({ type: 'network' });
 
       expect(mockFetch).toHaveBeenCalledTimes(4); // Initial + 3 retries
     });

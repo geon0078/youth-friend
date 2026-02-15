@@ -138,7 +138,6 @@ export function ApplyButton({
   const [showWarning, setShowWarning] = useState(false);
   const [isOpening, setIsOpening] = useState(false);
 
-  const textColor = getSemanticColor(colorScheme, 'text');
   const mutedTextColor = getSemanticColor(colorScheme, 'mutedText');
 
   const hasUrl = !!applicationUrl;
@@ -171,7 +170,7 @@ export function ApplyButton({
           { cancelable: true }
         );
       }
-    } catch (error) {
+    } catch {
       // 인앱 브라우저 실패 시 외부 브라우저로 열기
       try {
         const canOpen = await Linking.canOpenURL(applicationUrl);

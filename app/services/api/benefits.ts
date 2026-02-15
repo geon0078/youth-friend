@@ -8,6 +8,7 @@ import {
   POLICY_TYPE_CODES,
   REGION_TO_API_CODE,
   REGION_NAME_TO_CODE,
+  API_CODE_TO_REGION,
 } from './youth-policy';
 import {
   fetchTrainingCardList,
@@ -15,6 +16,7 @@ import {
 } from './employment24';
 import { fetchAllGov24Services } from './gov24';
 import { ApiError } from './client';
+import { cacheStorage, CacheKeys, CacheTTL } from '@/services/storage';
 import type {
   Benefit,
   BenefitDetail,
@@ -29,6 +31,31 @@ import type { Gov24ServiceListItem } from '@/types/api/gov24';
 // ========================================
 // 정규화 헬퍼 함수
 // ========================================
+
+const BENEFITS_CACHE_VERSION = 'v1';
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, entryValue]) => entryValue !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b));
+    const serialized = entries.map(([key, entryValue]) => {
+      return `${JSON.stringify(key)}:${stableStringify(entryValue)}`;
+    });
+    return `{${serialized.join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function getBenefitsCacheKey(filters?: BenefitFilters): string {
+  if (!filters || Object.keys(filters).length === 0) {
+    return `${CacheKeys.BENEFITS_LIST}:${BENEFITS_CACHE_VERSION}`;
+  }
+  return `${CacheKeys.FILTER_RESULTS}${BENEFITS_CACHE_VERSION}:${stableStringify(filters)}`;
+}
 
 /**
  * 온통청년 정책 유형을 카테고리로 변환
@@ -99,12 +126,132 @@ function determineBenefitStatus(
 }
 
 /**
+ * 시/군/구 → 광역시/도 매핑 (주요 지역)
+ */
+const CITY_TO_REGION: Record<string, string> = {
+  // 경기도
+  '수원': '경기', '성남': '경기', '의정부': '경기', '안양': '경기', '부천': '경기',
+  '광명': '경기', '평택': '경기', '동두천': '경기', '안산': '경기', '고양': '경기',
+  '과천': '경기', '구리': '경기', '남양주': '경기', '오산': '경기', '시흥': '경기',
+  '군포': '경기', '의왕': '경기', '하남': '경기', '용인': '경기', '파주': '경기',
+  '이천': '경기', '안성': '경기', '김포': '경기', '화성': '경기', // 경기도 광주시는 제외 (광주광역시와 혼동 방지)
+  '양주': '경기', '포천': '경기', '여주': '경기', '연천': '경기', '가평': '경기', '양평': '경기',
+  // 강원도
+  '춘천': '강원', '원주': '강원', '강릉': '강원', '동해': '강원', '태백': '강원',
+  '속초': '강원', '삼척': '강원', '홍천': '강원', '횡성': '강원', '영월': '강원',
+  '평창': '강원', '정선': '강원', '철원': '강원', '화천': '강원', '양구': '강원',
+  '인제': '강원', '고성': '강원', '양양': '강원',
+  // 충청북도
+  '청주': '충북', '충주': '충북', '제천': '충북', '보은': '충북', '옥천': '충북',
+  '영동': '충북', '증평': '충북', '진천': '충북', '괴산': '충북', '음성': '충북', '단양': '충북',
+  // 충청남도
+  '천안': '충남', '공주': '충남', '보령': '충남', '아산': '충남', '서산': '충남',
+  '논산': '충남', '계룡': '충남', '당진': '충남', '금산': '충남', '부여': '충남',
+  '서천': '충남', '청양': '충남', '홍성': '충남', '예산': '충남', '태안': '충남',
+  // 전라북도
+  '전주': '전북', '군산': '전북', '익산': '전북', '정읍': '전북', '남원': '전북',
+  '김제': '전북', '완주': '전북', '진안': '전북', '무주': '전북', '장수': '전북',
+  '임실': '전북', '순창': '전북', '고창': '전북', '부안': '전북',
+  // 전라남도
+  '목포': '전남', '여수': '전남', '순천': '전남', '나주': '전남', '광양': '전남',
+  '담양': '전남', '곡성': '전남', '구례': '전남', '고흥': '전남', '보성': '전남',
+  '화순': '전남', '장흥': '전남', '강진': '전남', '해남': '전남', '영암': '전남',
+  '무안': '전남', '함평': '전남', '영광': '전남', '장성': '전남', '완도': '전남',
+  '진도': '전남', '신안': '전남',
+  // 경상북도
+  '포항': '경북', '경주': '경북', '김천': '경북', '안동': '경북', '구미': '경북',
+  '영주': '경북', '영천': '경북', '상주': '경북', '문경': '경북', '경산': '경북',
+  '군위': '경북', '의성': '경북', '청송': '경북', '영양': '경북', '영덕': '경북',
+  '청도': '경북', '고령': '경북', '성주': '경북', '칠곡': '경북', '예천': '경북',
+  '봉화': '경북', '울진': '경북', '울릉': '경북',
+  // 경상남도
+  '창원': '경남', '진주': '경남', '통영': '경남', '사천': '경남', '김해': '경남',
+  '밀양': '경남', '거제': '경남', '양산': '경남', '의령': '경남', '함안': '경남',
+  '창녕': '경남', '남해': '경남', '하동': '경남', '산청': '경남',
+  '함양': '경남', '거창': '경남', '합천': '경남',
+};
+
+/**
+ * 기관명에서 지역 정보 추출
+ * - 광역시/도 키워드가 있으면 해당 지역 반환
+ * - 시/군/구명을 광역시/도로 매핑
+ * - 중앙부처 키워드가 있으면 undefined 반환 (전국 정책)
+ */
+function extractRegionFromOrganization(orgName: string): string | undefined {
+  if (!orgName) return undefined;
+
+  // 중앙부처 키워드 (전국 대상 정책)
+  const centralKeywords = [
+    '고용노동부', '교육부', '중소벤처기업부', '국토교통부', '보건복지부',
+    '과학기술정보통신부', '산업통상자원부', '환경부', '문화체육관광부',
+    '농림축산식품부', '해양수산부', '여성가족부', '국가보훈부', '법무부',
+    '행정안전부', '통일부', '외교부', '국방부', '기획재정부',
+    '금융위원회', '공정거래위원회', '국민권익위원회', '방송통신위원회',
+    '한국장학재단', '근로복지공단', '국민건강보험공단', '한국고용정보원',
+    '한국산업인력공단', '소상공인시장진흥공단', '중소벤처기업진흥공단',
+  ];
+
+  for (const keyword of centralKeywords) {
+    if (orgName.includes(keyword)) {
+      return undefined; // 전국 정책
+    }
+  }
+
+  // 광역시/특별시/도 패턴 매칭
+  const regionPatterns = [
+    { pattern: /서울/, region: '서울' },
+    { pattern: /부산/, region: '부산' },
+    { pattern: /대구/, region: '대구' },
+    { pattern: /인천/, region: '인천' },
+    { pattern: /광주/, region: '광주' }, // 광주광역시
+    { pattern: /대전/, region: '대전' },
+    { pattern: /울산/, region: '울산' },
+    { pattern: /세종/, region: '세종' },
+    { pattern: /경기/, region: '경기' },
+    { pattern: /강원/, region: '강원' },
+    { pattern: /충북|충청북/, region: '충북' },
+    { pattern: /충남|충청남/, region: '충남' },
+    { pattern: /전북|전라북/, region: '전북' },
+    { pattern: /전남|전라남/, region: '전남' },
+    { pattern: /경북|경상북/, region: '경북' },
+    { pattern: /경남|경상남/, region: '경남' },
+    { pattern: /제주/, region: '제주' },
+  ];
+
+  for (const { pattern, region } of regionPatterns) {
+    if (pattern.test(orgName)) {
+      return region;
+    }
+  }
+
+  // 시/군/구명에서 광역시/도 매핑 시도
+  for (const [city, region] of Object.entries(CITY_TO_REGION)) {
+    if (orgName.includes(city)) {
+      return region;
+    }
+  }
+
+  // 시/군/구로 끝나지만 매핑 안되면 local-unknown
+  if (/[시군구]$/.test(orgName) || /[시군구]\s/.test(orgName)) {
+    return 'local-unknown';
+  }
+
+  return undefined;
+}
+
+/**
  * 온통청년 정책 → Benefit 변환
  */
 function normalizeYouthPolicy(item: YouthPolicyListItem): Benefit {
   // 나이 파싱 (문자열 → 숫자)
   const minAge = item.sprtTrgtMinAge ? parseInt(item.sprtTrgtMinAge, 10) : undefined;
   const maxAge = item.sprtTrgtMaxAge ? parseInt(item.sprtTrgtMaxAge, 10) : undefined;
+
+  // 지역 결정: API 지역명 > 정책명에서 추출 > 기관명에서 추출
+  const region = item.polyBizSecdNm
+    || extractRegionFromOrganization(item.polyBizSjnm || '')
+    || extractRegionFromOrganization(item.cnsgNmor || '')
+    || undefined;
 
   return {
     id: `youth-policy-${item.bizId}`,
@@ -116,7 +263,7 @@ function normalizeYouthPolicy(item: YouthPolicyListItem): Benefit {
     deadline: item.rqutPrdCn || undefined,
     category: mapYouthPolicyCategory(item.polyBizTy),
     requirements: [],
-    region: item.polyBizSecdNm || item.rgtrInstCdNm || undefined,
+    region,
     organization: item.cnsgNmor || undefined,
     // 사업종료일(bizPrdEndYmd)로 상태 판정, fallback으로 신청기간 사용
     status: determineBenefitStatus(item.bizPrdEndYmd, item.rqutPrdCn),
@@ -175,6 +322,11 @@ function normalizeTrainingCard(item: TrainingCardItem): Benefit {
   const realMan = parseInt(item.realMan || '0', 10);
   const amount = courseMan > 0 ? courseMan - realMan : undefined;
 
+  // 지역 추출: 주소 또는 기관명에서 지역 정보 파싱
+  const region = extractRegionFromOrganization(item.address || '')
+    || extractRegionFromOrganization(item.instNm || '')
+    || undefined;
+
   return {
     id: `employment24-training-${item.trprId}`,
     originalId: item.trprId,
@@ -187,7 +339,7 @@ function normalizeTrainingCard(item: TrainingCardItem): Benefit {
     startDate: item.traStartDate || undefined,
     category: 'education',
     requirements: [],
-    region: item.address || undefined,
+    region,
     organization: item.instNm || undefined,
     status: determineBenefitStatus(item.traEndDate),
   };
@@ -203,6 +355,11 @@ function normalizeEmploymentProgram(item: EmploymentProgramItem): Benefit {
     return `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
   };
 
+  // 지역 추출: 기관명 또는 장소에서 지역 정보 파싱
+  const region = extractRegionFromOrganization(item.orgNm || '')
+    || extractRegionFromOrganization(item.openPlcCont || '')
+    || undefined;
+
   return {
     id: `employment24-program-${item.pgmId}`,
     originalId: item.pgmId,
@@ -214,6 +371,7 @@ function normalizeEmploymentProgram(item: EmploymentProgramItem): Benefit {
     startDate: formatDate(item.pgmStdt) || undefined,
     category: 'employment',
     requirements: item.pgmTarget ? [item.pgmTarget] : [],
+    region,
     organization: item.orgNm || undefined,
     status: determineBenefitStatus(formatDate(item.pgmEndt)),
   };
@@ -468,6 +626,8 @@ export async function fetchAllBenefits(
     console.log('[Benefits] fetchAllBenefits 호출됨, filters:', JSON.stringify(filters));
   }
 
+  const cacheKey = getBenefitsCacheKey(filters);
+
   const page = filters?.page ?? 1;
   const pageSize = filters?.pageSize ?? 100; // 페이지당 100개 요청
 
@@ -683,11 +843,16 @@ export async function fetchAllBenefits(
     console.log(`[Benefits] API 호출 완료: ${results.length}개 결과, ${errors.length}개 오류`);
   }
 
-  // 모든 API가 실패한 경우 Mock 데이터 반환
+  // 모든 API가 실패한 경우 캐시 또는 Mock 데이터 반환
   if (results.length === 0 && errors.length > 0) {
     if (__DEV__) {
-      console.warn('[Benefits] 모든 API 실패, Mock 데이터 사용');
+      console.warn('[Benefits] 모든 API 실패, 캐시 확인 후 Mock 데이터 사용');
       errors.forEach((e, i) => console.warn(`  오류 ${i + 1}:`, e.message));
+    }
+
+    const cached = cacheStorage.get<BenefitListResult>(cacheKey);
+    if (cached) {
+      return cached;
     }
 
     // 필터 적용
@@ -790,11 +955,17 @@ export async function fetchAllBenefits(
 
     const userRegionKoreanNames = REGION_CODE_TO_KOREAN[userRegion] || [];
 
-    filteredResults = results.filter((benefit) => {
+    const beforeRegionFilter = filteredResults.length;
+    filteredResults = filteredResults.filter((benefit) => {
       // 지역이 없는 경우 (전국 정책) 포함
       if (!benefit.region) return true;
 
       const benefitRegion = benefit.region;
+
+      // 'local-unknown': 시/군/구 단위 정책이지만 광역 정보 없음 → 제외
+      if (benefitRegion === 'local-unknown') {
+        return false;
+      }
 
       // 중앙부처/전국 정책은 모든 지역에 포함
       if (
@@ -841,17 +1012,21 @@ export async function fetchAllBenefits(
     });
 
     if (__DEV__) {
-      console.log(`[Benefits] 지역 필터 적용: ${results.length}개 → ${filteredResults.length}개 (지역: ${userRegion})`);
+      console.log(`[Benefits] 지역 필터 적용: ${beforeRegionFilter}개 → ${filteredResults.length}개 (지역: ${userRegion}, ${beforeRegionFilter - filteredResults.length}개 제외)`);
     }
   }
 
-  return {
+  const result: BenefitListResult = {
     items: filteredResults,
     totalCount: filteredResults.length,
     page,
     pageSize,
     totalPages: Math.ceil(filteredResults.length / pageSize),
   };
+
+  cacheStorage.set(cacheKey, result, { ttl: CacheTTL.HOUR });
+
+  return result;
 }
 
 /**
@@ -860,6 +1035,9 @@ export async function fetchAllBenefits(
 export async function fetchBenefitDetail(
   id: string
 ): Promise<BenefitDetail | null> {
+  const detailCacheKey = `${CacheKeys.BENEFIT_DETAIL}${id}`;
+  const cachedDetail = cacheStorage.get<BenefitDetail>(detailCacheKey);
+
   // Mock 데이터 확인
   if (id.startsWith('mock-')) {
     const mockBenefit = MOCK_BENEFITS.find((b) => b.id === id);
@@ -884,10 +1062,16 @@ export async function fetchBenefitDetail(
     try {
       const bizId = idParts.slice(1).join('-');
       const detail = await fetchYouthPolicyDetail(bizId);
-      return detail ? normalizeYouthPolicyDetail(detail) : null;
+      if (!detail) return cachedDetail ?? null;
+      const normalized = normalizeYouthPolicyDetail(detail);
+      cacheStorage.set(detailCacheKey, normalized, { ttl: CacheTTL.HOUR });
+      return normalized;
     } catch (error) {
       if (__DEV__) {
         console.warn('[Benefits] 상세 조회 실패, Mock 반환:', error);
+      }
+      if (cachedDetail) {
+        return cachedDetail;
       }
       // API 실패 시 첫 번째 Mock 데이터 반환
       const mockBenefit = MOCK_BENEFITS[0];
@@ -914,7 +1098,7 @@ export async function fetchBenefitDetail(
 
       if (item) {
         const benefit = normalizeTrainingCard(item);
-        return {
+        const detail: BenefitDetail = {
           ...benefit,
           ageRequirement: item.trainTarget || '제한 없음',
           applicationUrl: item.titleLink || '',
@@ -922,14 +1106,16 @@ export async function fetchBenefitDetail(
           applicationMethod: '훈련기관 문의',
           contactInfo: item.telNo || '',
           lastUpdated: '',
-        } as BenefitDetail;
+        };
+        cacheStorage.set(detailCacheKey, detail, { ttl: CacheTTL.HOUR });
+        return detail;
       }
     } catch (error) {
       if (__DEV__) {
         console.warn('[Benefits] 훈련과정 상세 조회 실패:', error);
       }
     }
-    return null;
+    return cachedDetail ?? null;
   }
 
   // employment24-program-{pgmId}
@@ -942,7 +1128,7 @@ export async function fetchBenefitDetail(
 
       if (item) {
         const benefit = normalizeEmploymentProgram(item);
-        return {
+        const detail: BenefitDetail = {
           ...benefit,
           ageRequirement: item.pgmTarget || '제한 없음',
           applicationUrl: '',
@@ -950,21 +1136,23 @@ export async function fetchBenefitDetail(
           applicationMethod: '해당 기관 문의',
           contactInfo: '',
           lastUpdated: '',
-        } as BenefitDetail;
+        };
+        cacheStorage.set(detailCacheKey, detail, { ttl: CacheTTL.HOUR });
+        return detail;
       }
     } catch (error) {
       if (__DEV__) {
         console.warn('[Benefits] 취업프로그램 상세 조회 실패:', error);
       }
     }
-    return null;
+    return cachedDetail ?? null;
   }
 
   // 알 수 없는 ID 형식
   if (__DEV__) {
     console.warn('[Benefits] 알 수 없는 혜택 ID 형식:', id);
   }
-  return null;
+  return cachedDetail ?? null;
 }
 
 /**
@@ -979,11 +1167,34 @@ export async function fetchPersonalizedBenefits(
   },
   filters?: Omit<BenefitFilters, 'region'>
 ): Promise<BenefitListResult> {
-  // 사용자 지역 코드 매핑
-  const regionCode = userProfile.region; // TODO: 지역 코드 매핑 로직 추가
+  // 사용자 지역 코드 매핑 (Region 타입으로 정규화)
+  const normalizedRegion = (() => {
+    const rawRegion = userProfile.region;
+    if (!rawRegion) return undefined;
+
+    if (REGION_TO_API_CODE[rawRegion]) {
+      return rawRegion;
+    }
+
+    const fromApiCode = API_CODE_TO_REGION[rawRegion];
+    if (fromApiCode) {
+      return fromApiCode;
+    }
+
+    const fromName = REGION_NAME_TO_CODE[rawRegion];
+    if (fromName) {
+      return fromName;
+    }
+
+    if (__DEV__) {
+      console.warn('[Benefits] 알 수 없는 사용자 지역 코드:', rawRegion);
+    }
+
+    return undefined;
+  })();
 
   return fetchAllBenefits({
     ...filters,
-    region: regionCode,
+    region: normalizedRegion,
   });
 }

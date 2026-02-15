@@ -13,13 +13,7 @@ import {
 } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import {
-  Palette,
-  Spacing,
-  Radius,
-  Typography,
-  getSemanticColor,
-} from '@/design-system';
+import { Spacing, Radius, Typography, getSemanticColor } from '@/design-system';
 
 interface SearchBarProps {
   /** 현재 검색어 */

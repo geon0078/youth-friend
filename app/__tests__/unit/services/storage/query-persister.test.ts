@@ -24,19 +24,26 @@ jest.mock('react-native-mmkv', () => ({
 describe('queryPersister', () => {
   beforeEach(() => {
     mockStorage.clear();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('storage operations', () => {
-    it('데이터를 저장하고 조회할 수 있다', () => {
+    it('데이터를 저장하고 조회할 수 있다', async () => {
       const testKey = 'test-cache-key';
       const testData = { queries: [], mutations: [] };
 
       // persistClient 호출 시뮬레이션
-      queryPersister.persistClient({
+      await queryPersister.persistClient({
         buster: '1',
         timestamp: Date.now(),
         clientState: testData,
       } as any);
+
+      await jest.runAllTimersAsync();
 
       // 저장된 데이터 확인
       expect(mockStorage.size).toBeGreaterThan(0);
@@ -50,14 +57,16 @@ describe('queryPersister', () => {
   });
 
   describe('serialization', () => {
-    it('데이터를 JSON으로 직렬화한다', () => {
+    it('데이터를 JSON으로 직렬화한다', async () => {
       const testData = {
         buster: '1',
         timestamp: Date.now(),
         clientState: { queries: [{ queryKey: ['test'], state: {} }] },
       };
 
-      queryPersister.persistClient(testData as any);
+      await queryPersister.persistClient(testData as any);
+
+      await jest.runAllTimersAsync();
 
       // 저장된 값이 JSON 문자열인지 확인
       const storedValue = Array.from(mockStorage.values())[0];

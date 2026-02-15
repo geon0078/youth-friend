@@ -4,13 +4,11 @@
  *
  * 카테고리별 알림 설정 및 방해 금지 시간 설정
  */
-import { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Switch,
-  Pressable,
   Platform,
 } from 'react-native';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -114,7 +112,6 @@ export function NotificationSettings({
   const toggleNewBenefitAlert = useAppStore((state) => state.toggleNewBenefitAlert);
   const toggleResultAlert = useAppStore((state) => state.toggleResultAlert);
 
-  const textColor = getSemanticColor(colorScheme, 'text');
   const mutedTextColor = getSemanticColor(colorScheme, 'mutedText');
   const backgroundColor = getSemanticColor(colorScheme, 'background');
 

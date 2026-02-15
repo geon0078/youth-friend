@@ -113,7 +113,8 @@ describe('useBenefits', () => {
     });
 
     expect(result.current.data).toEqual(mockBenefitListResult);
-    expect(mockApi.fetchAllBenefits).toHaveBeenCalledWith(undefined);
+    expect(mockApi.fetchAllBenefits).toHaveBeenNthCalledWith(1, { includeGov24: false });
+    expect(mockApi.fetchAllBenefits).toHaveBeenNthCalledWith(2, { source: 'gov24' });
   });
 
   it('필터를 적용하여 조회한다', async () => {
@@ -127,7 +128,14 @@ describe('useBenefits', () => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(mockApi.fetchAllBenefits).toHaveBeenCalledWith(filters);
+    expect(mockApi.fetchAllBenefits).toHaveBeenNthCalledWith(1, {
+      ...filters,
+      includeGov24: false,
+    });
+    expect(mockApi.fetchAllBenefits).toHaveBeenNthCalledWith(2, {
+      ...filters,
+      source: 'gov24',
+    });
   });
 
   describe('refresh (Pull-to-refresh)', () => {
@@ -152,23 +160,30 @@ describe('useBenefits', () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(1);
+      expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(2);
 
       // refresh 호출
       await act(async () => {
         await result.current.refresh();
       });
 
-      expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(2);
+      expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(4);
     });
 
     it('refresh 중 isRefetching이 true가 된다', async () => {
-      let resolvePromise: (value: any) => void;
+      let resolvePrimary: (value: any) => void;
+      let resolveGov24: (value: any) => void;
       mockApi.fetchAllBenefits
+        .mockResolvedValueOnce(mockBenefitListResult)
         .mockResolvedValueOnce(mockBenefitListResult)
         .mockReturnValueOnce(
           new Promise((resolve) => {
-            resolvePromise = resolve;
+            resolvePrimary = resolve;
+          })
+        )
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveGov24 = resolve;
           })
         );
 
@@ -193,11 +208,14 @@ describe('useBenefits', () => {
 
       // resolve
       await act(async () => {
-        resolvePromise!(mockBenefitListResult);
+        resolvePrimary!(mockBenefitListResult);
+        resolveGov24!(mockBenefitListResult);
         await refreshPromise;
       });
 
-      expect(result.current.isRefetching).toBe(false);
+      await waitFor(() => {
+        expect(result.current.isRefetching).toBe(false);
+      });
     });
   });
 
@@ -229,7 +247,7 @@ describe('useBenefits', () => {
       });
 
       // 캐시가 무효화되어 다시 fetch됨
-      expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(2);
+      expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(4);
     });
   });
 
@@ -258,6 +276,7 @@ describe('usePersonalizedBenefits', () => {
     queryClient = createTestQueryClient();
     jest.clearAllMocks();
     mockApi.fetchPersonalizedBenefits.mockResolvedValue(mockBenefitListResult);
+    mockApi.fetchAllBenefits.mockResolvedValue(mockBenefitListResult);
   });
 
   afterEach(() => {
@@ -293,8 +312,9 @@ describe('usePersonalizedBenefits', () => {
 
     expect(mockApi.fetchPersonalizedBenefits).toHaveBeenCalledWith(
       userProfile,
-      undefined
+      { includeGov24: false }
     );
+    expect(mockApi.fetchAllBenefits).toHaveBeenCalledWith({ source: 'gov24' });
   });
 
   it('refresh와 invalidate 함수를 제공한다', async () => {
@@ -343,7 +363,7 @@ describe('useInvalidateAllBenefits', () => {
       { wrapper: createWrapper(queryClient) }
     );
 
-    expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(1);
+    expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(2);
 
     // 무효화 호출
     await act(async () => {
@@ -351,7 +371,7 @@ describe('useInvalidateAllBenefits', () => {
     });
 
     // 캐시가 무효화되어 다시 fetch됨
-    expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(2);
+    expect(mockApi.fetchAllBenefits).toHaveBeenCalledTimes(4);
   });
 });
 

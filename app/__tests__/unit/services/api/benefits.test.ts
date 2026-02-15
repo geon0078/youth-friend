@@ -5,10 +5,25 @@
 import { fetchAllBenefits, fetchBenefitDetail } from '@/services/api/benefits';
 import * as youthPolicyApi from '@/services/api/youth-policy';
 import * as employment24Api from '@/services/api/employment24';
+import { cacheStorage } from '@/services/storage';
 
 // API 모듈 모킹
 jest.mock('@/services/api/youth-policy');
 jest.mock('@/services/api/employment24');
+jest.mock('@/services/storage', () => ({
+  cacheStorage: {
+    get: jest.fn(),
+    set: jest.fn(),
+  },
+  CacheKeys: {
+    BENEFITS_LIST: 'cache_benefits_list',
+    FILTER_RESULTS: 'cache_filter_results_',
+    BENEFIT_DETAIL: 'cache_benefit_detail_',
+  },
+  CacheTTL: {
+    HOUR: 60 * 60 * 1000,
+  },
+}));
 
 const mockYouthPolicyApi = youthPolicyApi as jest.Mocked<typeof youthPolicyApi>;
 const mockEmployment24Api = employment24Api as jest.Mocked<typeof employment24Api>;
@@ -16,6 +31,7 @@ const mockEmployment24Api = employment24Api as jest.Mocked<typeof employment24Ap
 describe('benefits 서비스', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (cacheStorage.get as jest.Mock).mockReturnValue(null);
 
     // 온통청년 API 모킹
     mockYouthPolicyApi.fetchYouthPolicyList.mockResolvedValue({
@@ -81,15 +97,15 @@ describe('benefits 서비스', () => {
 
   describe('fetchAllBenefits', () => {
     it('온통청년과 고용24 API를 병렬로 호출한다', async () => {
-      const result = await fetchAllBenefits();
+      await fetchAllBenefits();
 
       expect(mockYouthPolicyApi.fetchYouthPolicyList).toHaveBeenCalledTimes(1);
-      expect(mockEmployment24Api.fetchTrainingCardList).toHaveBeenCalledTimes(1);
+      expect(mockEmployment24Api.fetchTrainingCardList).not.toHaveBeenCalled();
       expect(mockEmployment24Api.fetchEmploymentProgramList).toHaveBeenCalledTimes(1);
     });
 
     it('온통청년 정책을 Benefit 모델로 정규화한다', async () => {
-      const result = await fetchAllBenefits();
+      const result = await fetchAllBenefits({ hideEnded: false });
 
       const youthBenefit = result.items.find((b) => b.source === 'youth-policy');
       expect(youthBenefit).toBeDefined();
@@ -98,18 +114,16 @@ describe('benefits 서비스', () => {
       expect(youthBenefit?.category).toBe('employment');
     });
 
-    it('훈련과정을 Benefit 모델로 정규화한다', async () => {
+    it('훈련과정은 fetchAllBenefits 결과에 포함되지 않는다', async () => {
       const result = await fetchAllBenefits({ category: 'education' });
 
       const trainingBenefit = result.items.find((b) => b.id === 'employment24-training-T001');
-      expect(trainingBenefit).toBeDefined();
-      expect(trainingBenefit?.title).toBe('웹개발 훈련과정');
-      expect(trainingBenefit?.organization).toBe('테스트 훈련기관');
-      expect(trainingBenefit?.category).toBe('education');
+      expect(trainingBenefit).toBeUndefined();
+      expect(mockEmployment24Api.fetchTrainingCardList).not.toHaveBeenCalled();
     });
 
     it('취업지원프로그램을 Benefit 모델로 정규화한다', async () => {
-      const result = await fetchAllBenefits();
+      const result = await fetchAllBenefits({ hideEnded: false });
 
       const programBenefit = result.items.find((b) => b.id === 'employment24-program-P001');
       expect(programBenefit).toBeDefined();
@@ -123,13 +137,13 @@ describe('benefits 서비스', () => {
 
       expect(mockYouthPolicyApi.fetchYouthPolicyList).toHaveBeenCalledTimes(1);
       expect(mockEmployment24Api.fetchTrainingCardList).not.toHaveBeenCalled();
+      expect(mockEmployment24Api.fetchEmploymentProgramList).not.toHaveBeenCalled();
     });
 
     it('category 필터를 적용한다', async () => {
       await fetchAllBenefits({ category: 'education' });
 
-      // education 카테고리에서는 trainingCard만 호출
-      expect(mockEmployment24Api.fetchTrainingCardList).toHaveBeenCalled();
+      expect(mockEmployment24Api.fetchTrainingCardList).not.toHaveBeenCalled();
       expect(mockEmployment24Api.fetchEmploymentProgramList).not.toHaveBeenCalled();
     });
 
@@ -138,7 +152,7 @@ describe('benefits 서비스', () => {
 
       expect(mockYouthPolicyApi.fetchYouthPolicyList).toHaveBeenCalledWith(
         expect.objectContaining({
-          pageIndex: 2,
+          pageIndex: 1,
           display: 20,
         })
       );
@@ -147,7 +161,7 @@ describe('benefits 서비스', () => {
     it('일부 API 실패 시에도 다른 API 결과를 반환한다', async () => {
       mockYouthPolicyApi.fetchYouthPolicyList.mockRejectedValue(new Error('API 오류'));
 
-      const result = await fetchAllBenefits();
+      const result = await fetchAllBenefits({ hideEnded: false });
 
       expect(result.items.length).toBeGreaterThan(0);
       expect(result.items.every((b) => b.source === 'employment24')).toBe(true);
@@ -155,7 +169,6 @@ describe('benefits 서비스', () => {
 
     it('모든 API 실패 시 Mock 데이터를 반환한다', async () => {
       mockYouthPolicyApi.fetchYouthPolicyList.mockRejectedValue(new Error('API 오류'));
-      mockEmployment24Api.fetchTrainingCardList.mockRejectedValue(new Error('API 오류'));
       mockEmployment24Api.fetchEmploymentProgramList.mockRejectedValue(new Error('API 오류'));
 
       const result = await fetchAllBenefits();
@@ -222,10 +235,11 @@ describe('benefits 서비스', () => {
       expect(result?.id).toBe('mock-youth-policy-1');
     });
 
-    it('고용24 상세 조회는 null을 반환한다', async () => {
+    it('고용24 상세 조회를 반환한다', async () => {
       const result = await fetchBenefitDetail('employment24-training-T001');
 
-      expect(result).toBeNull();
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe('employment24-training-T001');
     });
 
     it('잘못된 ID 형식에 대해 null을 반환한다', async () => {

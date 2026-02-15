@@ -1,34 +1,56 @@
-import { SafeAreaView, ScrollView, View, Text, StyleSheet } from 'react-native';
-
+import { SafeAreaView, ScrollView, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { useMemo } from 'react';
 import { Palette, Spacing, Radius, Typography } from '@/design-system';
 import { Card, SectionHeader } from '@/components/design-system';
+import { useBenefits, useBenefitsMetadata } from '@/hooks';
+import type { BenefitSource } from '@/types/models/benefit';
 
-const apiSources = [
-  {
-    name: '정부24 청년정책 통합공고',
-    description: '전국 단위 청년정책 공고 데이터를 Open API로 제공합니다.',
-    sync: '매일 02:00 동기화',
-  },
-  {
-    name: '서울시 열린데이터광장',
-    description: '지역별 주거·교육·생활 지원 공고를 태그 기반으로 수집합니다.',
-    sync: '3시간 간격 스케줄러',
-  },
-  {
-    name: '고용노동부 청년센터',
-    description: '취업 연계, 면접 지원비, 멘토링 프로그램 API.',
-    sync: '실시간 이벤트 Webhook 준비 중',
-  },
-];
+const SOURCE_LABELS: Record<BenefitSource, string> = {
+  'youth-policy': '온통청년',
+  employment24: '고용24',
+  gov24: '보조금24',
+};
 
-const roadmap = [
-  'Week 1: Expo + TypeScript 기반 앱 골격 구축 및 온보딩 UI',
-  'Week 2: Open API 데이터 파이프라인 정규화, 홈 피드 연결',
-  'Week 3: 알림/마감 이벤트, 신청 체크리스트 저장소',
-  'Week 4: 베타 배포 및 지자체 제휴 스폰서 실험',
-];
+const SOURCE_DESCRIPTIONS: Record<BenefitSource, string> = {
+  'youth-policy': '전국 청년정책 공고를 실시간으로 수집합니다.',
+  employment24: '취업 연계·훈련 프로그램 데이터를 연결합니다.',
+  gov24: '청년 대상 보조금/지원 서비스를 필터링합니다.',
+};
+
+function formatUpdatedAt(updatedAt?: number): string {
+  if (!updatedAt) return '업데이트 정보 없음';
+  return new Date(updatedAt).toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export default function ExploreScreen() {
+  const { data, isLoading, isError } = useBenefits();
+  const { latestUpdatedAt } = useBenefitsMetadata();
+
+  const sourceStats = useMemo(() => {
+    const counts: Record<BenefitSource, number> = {
+      'youth-policy': 0,
+      employment24: 0,
+      gov24: 0,
+    };
+
+    (data?.items ?? []).forEach((benefit) => {
+      counts[benefit.source] += 1;
+    });
+
+    return (Object.keys(counts) as BenefitSource[]).map((source) => ({
+      source,
+      name: SOURCE_LABELS[source],
+      description: SOURCE_DESCRIPTIONS[source],
+      count: counts[source],
+    }));
+  }, [data?.items]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -39,26 +61,40 @@ export default function ExploreScreen() {
         </Text>
 
         <View style={styles.section}>
-          <SectionHeader title="주요 데이터 소스" />
-          {apiSources.map((source) => (
-            <Card key={source.name}>
-              <Text style={styles.cardTitle}>{source.name}</Text>
-              <Text style={styles.cardDescription}>{source.description}</Text>
-              <Text style={styles.cardMeta}>{source.sync}</Text>
-            </Card>
-          ))}
+          <SectionHeader
+            title="주요 데이터 소스"
+            subtitle={`마지막 업데이트: ${formatUpdatedAt(latestUpdatedAt)}`}
+          />
+          {isLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={Palette.primary} />
+              <Text style={styles.loadingText}>데이터 집계 중...</Text>
+            </View>
+          ) : isError ? (
+            <Text style={styles.errorText}>데이터를 불러오지 못했습니다.</Text>
+          ) : (
+            sourceStats.map((source) => (
+              <Card key={source.source}>
+                <Text style={styles.cardTitle}>{source.name}</Text>
+                <Text style={styles.cardDescription}>{source.description}</Text>
+                <Text style={styles.cardMeta}>현재 {source.count.toLocaleString()}건</Text>
+              </Card>
+            ))
+          )}
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="개발 로드맵 (4주)" />
-          {roadmap.map((item, index) => (
-            <Card key={item} style={styles.roadmapRow}>
-              <View style={styles.roadmapBadge}>
-                <Text style={styles.roadmapBadgeText}>{index + 1}</Text>
-              </View>
-              <Text style={styles.roadmapText}>{item}</Text>
-            </Card>
-          ))}
+          <SectionHeader title="데이터 활용 요약" />
+          <Card style={styles.summaryRow}>
+            <Text style={styles.summaryTitle}>총 혜택 수</Text>
+            <Text style={styles.summaryValue}>
+              {(data?.items.length ?? 0).toLocaleString()}건
+            </Text>
+          </Card>
+          <Card style={styles.summaryRow}>
+            <Text style={styles.summaryTitle}>API 출처 수</Text>
+            <Text style={styles.summaryValue}>3곳 (온통청년·고용24·보조금24)</Text>
+          </Card>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -85,6 +121,18 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.sm,
   },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  loadingText: {
+    color: Palette.textMuted,
+    fontSize: 13,
+  },
+  errorText: {
+    color: Palette.textMuted,
+  },
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -99,25 +147,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: 'uppercase',
   },
-  roadmapRow: {
+  summaryRow: {
     flexDirection: 'row',
-    gap: Spacing.md,
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  roadmapBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.lg,
-    backgroundColor: Palette.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  summaryTitle: {
+    color: Palette.textMuted,
+    fontSize: 13,
   },
-  roadmapBadgeText: {
-    color: Palette.textOnPrimary,
-    fontWeight: '700',
-  },
-  roadmapText: {
-    flex: 1,
+  summaryValue: {
     color: Palette.textPrimary,
+    fontWeight: '700',
   },
 });

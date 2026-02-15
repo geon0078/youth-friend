@@ -45,6 +45,17 @@ export interface YouthPolicyListItem {
   polyBizSecdNm?: string;
   /** 조회수 */
   views?: number;
+  // === 추가 필드 (사용자 맞춤 필터링용) ===
+  /** 사업 시작일 (YYYYMMDD) */
+  bizPrdBgngYmd?: string;
+  /** 사업 종료일 (YYYYMMDD) */
+  bizPrdEndYmd?: string;
+  /** 지원 대상 최소 나이 */
+  sprtTrgtMinAge?: string;
+  /** 지원 대상 최대 나이 */
+  sprtTrgtMaxAge?: string;
+  /** 등록 기관명 */
+  rgtrInstCdNm?: string;
 }
 
 /**

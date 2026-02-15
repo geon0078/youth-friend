@@ -175,11 +175,16 @@ export type TextSize = 'small' | 'medium' | 'large';
 export interface BenefitFilter {
   /** 카테고리 필터 (다중 선택 가능) */
   categories: BenefitCategory[];
+  /** 출처 필터 (단일 선택, null = 전체) */
+  source: BenefitSource | null;
   /** 검색어 */
   searchQuery: string;
   /** 정렬 기준 */
   sortBy: SortOption;
 }
+
+/** 혜택 출처 타입 */
+export type BenefitSource = 'youth-policy' | 'employment24' | 'gov24';
 
 /** 혜택 카테고리 타입 */
 export type BenefitCategory =

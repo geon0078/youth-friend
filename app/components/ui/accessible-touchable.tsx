@@ -14,11 +14,7 @@ import {
   GestureResponderEvent,
   AccessibilityRole,
 } from 'react-native';
-import {
-  TouchTargets,
-  createHitSlop,
-  calculateAccessibleHitSlop,
-} from '@/design-system/layout';
+import { TouchTargets, createHitSlop } from '@/design-system/layout';
 import { useReducedMotion } from '@/hooks/use-accessibility';
 
 /**

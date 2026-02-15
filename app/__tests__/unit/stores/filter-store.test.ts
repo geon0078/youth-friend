@@ -25,9 +25,9 @@ describe('filter-store', () => {
       expect(result.current.filter.searchQuery).toBe('');
     });
 
-    it('sortBy가 deadline으로 초기화된다', () => {
+    it('sortBy가 recommended로 초기화된다', () => {
       const { result } = renderHook(() => useFilterStore());
-      expect(result.current.filter.sortBy).toBe('deadline');
+      expect(result.current.filter.sortBy).toBe('recommended');
     });
   });
 
@@ -162,7 +162,7 @@ describe('filter-store', () => {
 
       expect(result.current.filter.categories).toEqual([]);
       expect(result.current.filter.searchQuery).toBe('');
-      expect(result.current.filter.sortBy).toBe('deadline');
+      expect(result.current.filter.sortBy).toBe('recommended');
     });
   });
 

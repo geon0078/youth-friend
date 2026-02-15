@@ -2,7 +2,7 @@
  * 알림 설정 화면
  * Story 6.6: Implement Notification Settings Screen
  */
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';

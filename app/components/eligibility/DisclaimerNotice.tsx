@@ -6,7 +6,7 @@
  * 모든 자격 검증 결과에 포함되어야 하는 필수 컴포넌트
  */
 import { View, Text, StyleSheet, type ColorSchemeName } from 'react-native';
-import { Palette, Spacing, Radius, Typography, getSemanticColor } from '@/design-system';
+import { Spacing, Radius, Typography, getSemanticColor } from '@/design-system';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ELIGIBILITY_DISCLAIMER } from '@/types/models/eligibility';
 

@@ -8,8 +8,10 @@ export { BenefitCardSkeleton } from './BenefitCardSkeleton';
 export { DeadlineBadge } from './DeadlineBadge';
 export { EmptyBenefitsList } from './EmptyBenefitsList';
 export { CategoryFilter } from './CategoryFilter';
+export { SourceFilter } from './SourceFilter';
 export { SortTabs } from './SortTabs';
 export { BenefitSection } from './BenefitSection';
+export { PersonalFilterToggle } from './PersonalFilterToggle';
 
 // Benefit Detail Components (Story 3.7)
 export { BenefitDetail } from './BenefitDetail';

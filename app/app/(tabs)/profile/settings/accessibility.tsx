@@ -2,7 +2,7 @@
  * 접근성 설정 화면
  * Story 7.6: Implement Accessibility Settings Screen
  */
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';

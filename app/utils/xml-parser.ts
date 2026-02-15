@@ -14,7 +14,7 @@ const parserOptions = {
   attributeNamePrefix: '@_',
   parseTagValue: true,
   trimValues: true,
-  parseAttributeValue: true,
+  parseAttributeValue: false,
   removeNSPrefix: true, // 네임스페이스 접두사 제거
 };
 
@@ -104,14 +104,20 @@ export function extractResultFromXml(xmlString: string): {
   const parsed = parseXml<{
     response?: {
       header?: {
-        resultCode?: string;
-        resultMsg?: string;
+        resultCode?: string | number;
+        resultMsg?: string | number;
       };
     };
   }>(xmlString);
 
-  const code = parsed?.response?.header?.resultCode ?? '';
-  const message = parsed?.response?.header?.resultMsg ?? '';
+  const codeMatch = xmlString.match(/<resultCode>([^<]*)<\/resultCode>/i);
+  const messageMatch = xmlString.match(/<resultMsg>([^<]*)<\/resultMsg>/i);
+
+  const rawCode = codeMatch?.[1] ?? parsed?.response?.header?.resultCode ?? '';
+  const rawMessage = messageMatch?.[1] ?? parsed?.response?.header?.resultMsg ?? '';
+
+  const code = typeof rawCode === 'string' ? rawCode : String(rawCode);
+  const message = typeof rawMessage === 'string' ? rawMessage : String(rawMessage);
 
   return {
     code,

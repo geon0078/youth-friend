@@ -89,6 +89,29 @@ function getRetryDelay(attempt: number): number {
 }
 
 /**
+ * 지역 코드를 한글 지역명으로 변환
+ */
+const API_CODE_TO_KOREAN: Record<string, string> = {
+  '003001': '서울',
+  '003002': '부산',
+  '003003': '대구',
+  '003004': '인천',
+  '003005': '광주',
+  '003006': '대전',
+  '003007': '울산',
+  '003008': '경기',
+  '003009': '강원',
+  '003010': '충북',
+  '003011': '충남',
+  '003012': '전북',
+  '003013': '전남',
+  '003014': '경북',
+  '003015': '경남',
+  '003016': '제주',
+  '003017': '세종',
+};
+
+/**
  * 새 API 응답을 기존 타입으로 변환
  */
 function convertToLegacyFormat(item: NewApiPolicyItem): YouthPolicyListItem {
@@ -101,8 +124,9 @@ function convertToLegacyFormat(item: NewApiPolicyItem): YouthPolicyListItem {
     '참여권리': '023050',
   };
 
-  // 지역 코드 추출 (zipCd 또는 rgtrInstCdNm에서)
+  // 지역 코드 추출 및 한글 지역명 변환
   const regionCode = item.zipCd || '';
+  const regionKorean = API_CODE_TO_KOREAN[regionCode] || '';
 
   return {
     bizId: item.plcyNo,
@@ -112,8 +136,9 @@ function convertToLegacyFormat(item: NewApiPolicyItem): YouthPolicyListItem {
     rqutPrdCn: item.aplyYmd || (item.bizPrdEndYmd ? `~${item.bizPrdEndYmd}` : '상시'),
     polyBizTy: categoryToCode[item.lclsfNm] || '023040',
     polyBizSecd: regionCode,
-    polyBizSecdNm: item.rgtrInstCdNm || '',
+    polyBizSecdNm: regionKorean, // 지역 코드 → 한글 지역명
     cnsgNmor: item.sprvsnInstCdNm || item.operInstCdNm || '',
+    rgtrInstCdNm: item.rgtrInstCdNm || '', // 기관명은 별도 필드로 저장
   };
 }
 
@@ -226,7 +251,8 @@ async function fetchJson<T>(
 
         if (json.resultCode !== 200) {
           throw new ApiError(json.resultMessage || 'API 응답 오류', 'http', {
-            code: json.resultCode,
+            status: 400,
+            code: String(json.resultCode),
           });
         }
 
